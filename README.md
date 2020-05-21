@@ -1,1 +1,3 @@
-# 0xFF
+# 0xFontFinder
+
+ >``autoencoder.py`` - Первоначально был переписанной под PyTorch версией автокодировщика из [WhatTheFont](https://github.com/artset/WhatTheFont/blob/master/model/autoencoder.py). Теперь же - попытка точно повторить кодировщик из DeepFont. Всё потому, что первоначальный вариант был очень прост и подозрительно хорош. Но я до сих пор не понимаю, почему Adobe используют квадрат 105x105 и, видимо, kernel 11x11 (не меньше)
