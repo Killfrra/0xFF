@@ -24,7 +24,7 @@ device = torch.device("cuda:0" if cuda else "cpu")
 
 ngpu = 1
 niter = 100
-batch_size = 256
+batch_size = 128
 learning_rate = 1e-2
 workers = 5
 
@@ -95,29 +95,28 @@ output = model(img)
 print(output.size())
 exit()
 """
-def freeze_layers():
-    model.conv1.weight.requires_grad = False
-    model.conv1.bias.requires_grad = False
-    model.conv2.weight.requires_grad = False
-    model.conv2.bias.requires_grad = False
-
-freeze_layers()
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(filter(lambda m: m.requires_grad, model.parameters()), learning_rate, momentum=0.9) #?
 
 epoch = 0
 total_loss = 0
 df_checkpoint = None
+df_state_dict = dict()
+
 if os.path.isfile(df_savefile):
     df_checkpoint = torch.load(df_savefile)
     epoch = df_checkpoint['epoch']
-    model.load_state_dict(df_checkpoint['model_state_dict'])
+    df_state_dict = df_checkpoint['model_state_dict']
     total_loss = df_checkpoint['loss']
 
-ae_checkpoint = torch.load(ae_savefile)
-model.load_state_dict(ae_checkpoint['model_state_dict'], strict=False)
-freeze_layers()
+ae_state_dict = torch.load(ae_savefile)['model_state_dict']
+for (key, value) in ae_state_dict.items():
+    if key.startswith('conv'):
+        df_state_dict[key] = value
+        df_state_dict[key].requires_grad = False
+
+model.load_state_dict(df_state_dict, strict=False)
+
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(filter(lambda m: m.requires_grad, model.parameters()), learning_rate, momentum=0.9) #?
 
 if df_checkpoint:
     optimizer.load_state_dict(df_checkpoint['optimizer_state_dict'])
