@@ -6,7 +6,7 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 import torch.nn.functional as F
 
-dataroot = 'datasets/VFR_real_test'
+dataroot = 'datasets/top5_real+synth'
 output_folder = 'output'
 savefile = output_folder + '/ae.tar'
 cuda = torch.cuda.is_available()
@@ -14,7 +14,7 @@ device = torch.device("cuda:0" if cuda else "cpu")
 
 ngpu = 1
 niter = 100
-batch_size = 128
+batch_size = 256
 learning_rate = 1e-2
 workers = 5
 
@@ -76,7 +76,7 @@ if os.path.isfile(savefile):
     epoch = checkpoint['epoch']
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    total_loss = checkpoint['loss']
+    #total_loss = checkpoint['loss']
     model.train()
 
 dataset = dset.ImageFolder(root=dataroot,
@@ -99,7 +99,7 @@ while epoch < niter:
 
         output = model(img)
         loss = criterion(output, img)
-        total_loss += loss
+        total_loss += loss.item()
 
         loss.backward()
         optimizer.step()
