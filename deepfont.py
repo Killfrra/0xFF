@@ -16,7 +16,6 @@ import torchvision.utils as vutils
 import common
 from PIL import Image
 
-dataroot = 'datasets/top5_synth'
 output_folder = 'output'
 ae_savefile = output_folder + '/ae.tar'
 df_savefile = output_folder + '/df.tar'
@@ -96,20 +95,32 @@ output = model(img)
 print(output.size())
 exit()
 """
+def freeze_layers():
+    model.conv1.weight.requires_grad = False
+    model.conv1.bias.requires_grad = False
+    model.conv2.weight.requires_grad = False
+    model.conv2.bias.requires_grad = False
 
-ae_checkpoint = torch.load(ae_savefile)
-missing_keys, unexpected_keys = model.load_state_dict(ae_checkpoint['model_state_dict'], strict=False)
-model.conv1.weight.requires_grad = False
-model.conv1.bias.requires_grad = False
-model.conv2.weight.requires_grad = False
-model.conv2.bias.requires_grad = False
-#print('missing keys:', missing_keys)
-#print('unexpected keys:', unexpected_keys)
+freeze_layers()
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(filter(lambda m: m.requires_grad, model.parameters()), learning_rate, momentum=0.9) #?
 
-epoch, total_loss = common.load_checkpoint(df_savefile, model, optimizer)
+epoch = 0
+total_loss = 0
+df_checkpoint = None
+if os.path.isfile(df_savefile):
+    df_checkpoint = torch.load(df_savefile)
+    epoch = df_checkpoint['epoch']
+    model.load_state_dict(df_checkpoint['model_state_dict'])
+    total_loss = df_checkpoint['loss']
+
+ae_checkpoint = torch.load(ae_savefile)
+model.load_state_dict(ae_checkpoint['model_state_dict'], strict=False)
+freeze_layers()
+
+if df_checkpoint:
+    optimizer.load_state_dict(df_checkpoint['optimizer_state_dict'])
 
 preprocess = transforms.Compose([
     transforms.Grayscale(),
@@ -122,13 +133,14 @@ preprocess = transforms.Compose([
 def train():
     global epoch
 
-    dataset = dset.ImageFolder(root=dataroot, transform=preprocess)
+    dataset = dset.ImageFolder(root='datasets/top5_synth_train', transform=preprocess)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=int(workers))
     
     model.train()
 
     while epoch < niter:  # loop over the dataset multiple times
         epoch += 1
+        if sigint: break
 
         total_loss = 0.0
         for i, data in enumerate(dataloader, 0):
@@ -149,16 +161,12 @@ def train():
             # print statistics
             total_loss += loss.item()
 
-            if sigint: break
-        
         common.save_checkpoint(df_savefile, model, optimizer, epoch, total_loss)
-        print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, total_loss / len(dataloader)))
-
-        if sigint: break
+        print('[%d, %2d] loss: %.3f' % (epoch, i + 1, total_loss / len(dataloader)))
 
 def test_on_single_image():
     model.eval()
-    inputs = preprocess(Image.open('test.tiff')).unsqueeze_(0).to(device)
+    inputs = preprocess(Image.open(sys.argv[2])).unsqueeze_(0).to(device)
     with torch.no_grad():
         outputs = model(inputs)
         print(torch.max(outputs.data, 1))
@@ -168,13 +176,11 @@ def test():
     dataset = dset.ImageFolder(root='datasets/top5_synth_test', transform=preprocess)
     testloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=int(workers))
 
-    print(dataset.classes)
-
     model.eval()
 
     class_count = len(dataset.classes)
-    class_correct = list(0. for i in range(class_count))
-    class_total = list(0. for i in range(class_count))
+    class_correct = list(0. for _ in range(class_count))
+    class_total = list(0. for _ in range(class_count))
     with torch.no_grad():
         for data in testloader:
 
@@ -191,11 +197,13 @@ def test():
                 class_total[label] += 1
                 i += 1
 
-    for i in range(5):
-        print('Accuracy of %d : %2d %%' % (i, 100 * class_correct[i] / class_total[i]))
+    for i in range(class_count):
+        print('Accuracy of %17s : %2d %%' % (dataset.classes[i], 100 * class_correct[i] / class_total[i]))
 
 if __name__ == '__main__':
     if sys.argv[1] == 'train':
         train()
     elif sys.argv[1] == 'test':
         test()
+    elif sys.argv[1] == 'image':
+        test_on_single_image()

@@ -98,20 +98,15 @@ def random_string_from_dict(length = 3, allow_variable=True):
         current_string += lang_dict[rnd.randrange(dict_len)]
     return current_string
 
-images_per_font = 256
+images_per_font = 205
 for font_name in font_list:
 
-    for i in range(1, images_per_font):
+    for i in range(128, images_per_font):
 
         font = ImageFont.truetype(os.path.join(font_folder, font_name), size=rnd.randint(40, 80))
 
         str = random_string_from_dict(1)
         txt = create_random_txt(str, font)
-
-        txt.resize((
-            txt.size[0], #round(txt.size[0] * rnd.uniform(1, 2.0)),
-            round(txt.size[1] * rnd.uniform(0.5, 1.5))
-        ))
 
         txt_alpha = txt.split()[-1]
 
@@ -126,9 +121,9 @@ for font_name in font_list:
 
         #print('1', txt_background.size)
         txt_background.paste(txt, txt_offset, txt_alpha)
-        txt_background = txt_background.resize((
-            max(11, txt_background.size[0] - rnd.randint(0, 30)),
-            max(11, txt_background.size[1] - rnd.randint(0, 30))
+        txt_background.resize((
+            round(txt_background.size[0] * rnd.uniform(0.5, 1.5)),
+            round(txt_background.size[1] * rnd.uniform(0.5, 1.5))
         ))
         #print('2', txt_background.size)
 

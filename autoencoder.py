@@ -1,4 +1,11 @@
 import os
+import signal
+sigint = False
+def sigint_handler(number, frame):
+    global sigint
+    sigint = True
+signal.signal(signal.SIGINT, sigint_handler)
+
 import torch
 import torch.nn as nn
 import torchvision.datasets as dset
@@ -91,6 +98,9 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle
 
 #def train():
 while epoch < niter:
+    epoch += 1
+    if sigint: break
+
     for i, data in enumerate(dataloader, 0):
 
         img = data[0].to(device)
@@ -106,9 +116,8 @@ while epoch < niter:
         
         print('[%d/%d][%d/%d] Loss: %.4f' % (epoch, niter, i, len(dataloader), loss.item()))
 
-        if i == 0:
-            vutils.save_image(img, '%s/input_samples.png' % output_folder, normalize=True)
-            vutils.save_image(output, '%s/output_epoch_%03d.png' % (output_folder, epoch), normalize=True)
+    vutils.save_image(  img, '%s/input_samples_%03d.png' % (output_folder, epoch), normalize=True)
+    vutils.save_image(output, '%s/output_epoch_%03d.png' % (output_folder, epoch), normalize=True)
     
     total_loss = total_loss / float(len(dataloader))
     print('TOTAL LOSS %.4f' % total_loss)
@@ -119,8 +128,6 @@ while epoch < niter:
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': total_loss
     }, savefile)
-
-    epoch += 1
 
 #if __name__ == '__main__':
 #    train()
