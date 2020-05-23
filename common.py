@@ -1,5 +1,7 @@
 import os
 import torch
+import torchvision.transforms as transforms
+from PIL.ImageOps import autocontrast
 
 def load_checkpoint(savefile, model, optimizer=None, strict=True):
     epoch = 0
@@ -21,3 +23,14 @@ def save_checkpoint(savefile, model, optimizer, epoch, total_loss):
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': total_loss
     }, savefile)
+
+
+def transform(image_size):
+    return transforms.Compose([
+        transforms.Grayscale(),
+        transforms.Resize(image_size),
+        transforms.CenterCrop(image_size),
+        transforms.Lambda(autocontrast),
+        transforms.ToTensor(),
+        #transforms.Normalize((0.5,), (0.5,)),
+    ])
