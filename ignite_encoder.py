@@ -51,17 +51,16 @@ class Autoencoder(nn.Module):
             x = self.decoder(x)
         return x
 
-def get_data_loaders(train_batch_size, val_batch_size, workers):
-    
-    image_size = 64
-    data_transform = transforms.Compose([
-        transforms.Grayscale(),
-        transforms.Resize(image_size),
-        transforms.CenterCrop(image_size),
-        transforms.Lambda(autocontrast),
-        transforms.ToTensor()
-    ])
+image_size = 64
+data_transform = transforms.Compose([
+    transforms.Grayscale(),
+    transforms.Resize(image_size),
+    transforms.CenterCrop(image_size),
+    transforms.Lambda(autocontrast),
+    transforms.ToTensor()
+])
 
+def get_data_loaders(train_batch_size, val_batch_size, workers):
     train_loader = DataLoader(datasets.ImageFolder('datasets/top5_real+synth', data_transform), batch_size=train_batch_size, shuffle=True, num_workers=workers)
     val_loader  =  DataLoader(datasets.ImageFolder('datasets/top5_synth_test', data_transform), batch_size=train_batch_size, shuffle=True, num_workers=workers)
     
@@ -85,22 +84,22 @@ def process_function(engine, batch):
     loss.backward()
     optimizer.step()
     return loss.item()
-"""
+
 def evaluate_function(engine, batch):
     model.eval()
     with torch.no_grad():
         inputs = batch[0].to(device)
         outputs = model(inputs)
         return outputs, inputs
-"""
+
 trainer = Engine(process_function)
-#evaluator = Engine(evaluate_function)
-
-#training_history = {'mse': []}
-#validation_history = {'mse': []}
-
+evaluator = Engine(evaluate_function)
+"""
+training_history = {'mse': []}
+validation_history = {'mse': []}
+"""
 RunningAverage(output_transform=lambda x:x).attach(trainer, 'loss')
-#MeanSquaredError().attach(evaluator, 'mse')
+MeanSquaredError().attach(evaluator, 'mse')
 
 @trainer.on(Events.ITERATION_COMPLETED)
 def log_training_loss(engine):
@@ -113,22 +112,39 @@ train_loader, val_loader = get_data_loaders(train_batch_size, val_batch_size, nu
 
 @trainer.on(Events.EPOCH_COMPLETED)
 def print_trainer_logs(engine):
-    #evaluator.run(val_loader, max_epochs=1)
+    evaluator.run(val_loader, max_epochs=1)
     avg_loss = engine.state.metrics['loss']
     print('Epoch %d - Avg loss: %.2f' % (engine.state.epoch, avg_loss))
 
-def score_function(engine):
-    return engine.state.metrics['loss']
+@trainer.on(Events.EPOCH_COMPLETED(every=5))
+def check_accuracy(engine):
+    evaluator.run(val_loader, max_epochs=1)
 
-patience = 10
+def accuracy_function(engine):
+    return -engine.state.metrics['mse']
+
+handler = EarlyStopping(1, accuracy_function, trainer)
+evaluator.add_event_handler(Events.COMPLETED, handler)
+
+def loss_function(engine):
+    return -engine.state.metrics['loss']
 
 to_save = { 'trainer': trainer, 'model': model, 'optimizer': optimizer }
-handler = Checkpoint(to_save, DiskSaver('output/autoencoder', require_empty=False), score_function=score_function, score_name='loss', n_saved=patience)
+handler = Checkpoint(to_save, DiskSaver('output/autoencoder', require_empty=False), score_function=loss_function, score_name='loss', n_saved=20)
 trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
 
-handler = EarlyStopping(patience, score_function, trainer)
-trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
-
+if handler.last_checkpoint:
+    checkpoint = torch.load(handler.last_checkpoint)
+    Checkpoint.load_objects(to_save, checkpoint)
+"""
+from PIL import Image
+import torchvision.utils as vutils
+inputs = data_transform(Image.open('datasets/top5_synth_test/MyriadPro-Regular/200.tiff')).unsqueeze_(0).to(device)
+with torch.no_grad():
+    outputs = model(inputs)
+    vutils.save_image(outputs, 'ae_out.tiff', normalize=True)
+exit()
+"""
 trainer.run(train_loader, max_epochs=100)
 
 
