@@ -15,6 +15,7 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from PIL import Image
+import torch.nn.functional as F
 
 import common
 import encoder
@@ -118,11 +119,25 @@ def train():
 
         common.save_checkpoint(savefile, model, optimizer, epoch, total_loss)
 
-def test_on_single_image():
-    inputs = preprocess(Image.open(sys.argv[2])).unsqueeze_(0).to(device)
+def test_on_single_image(image):
+    inputs = preprocess(image).unsqueeze_(0).to(device)
+    classes = ['ForteMTStd', 'GillSansStd', 'MyriadPro-Regular', 'OndineLTStd', 'ScriptMTStd-Bold' ]
+    links = [
+        'https://www.myfonts.com/fonts/adobe/forte/regular/',
+        'https://fontsgeek.com/fonts/Gill-Sans-Std-Regular',
+        'https://fontsgeek.com/fonts/Myriad-Pro-Regular',
+        'https://www.myfonts.com/fonts/adobe/ondine/regular/',
+        'https://www.azfonts.net/load_font/script-mt-bold.html'
+    ]
     with torch.no_grad():
         outputs = model(inputs)
-        print(torch.max(outputs.data, 1))
+        #print(torch.max(outputs.data, 1))
+        outputs = F.softmax(outputs.data, 1).tolist()[0]
+        for (i, e) in enumerate(outputs):
+            outputs[i] = round(e * 100)
+        outputs = list(zip(classes, outputs, links))
+        outputs.sort(key=lambda tup: tup[1], reverse=True)
+        return outputs
 
 def test():
     dataset = dset.ImageFolder(root='datasets/top5_synth_test', transform=preprocess)
@@ -163,4 +178,7 @@ if __name__ == '__main__':
         if sys.argv[1] == 'test':
             test()
         elif sys.argv[1] == 'image':
-            test_on_single_image()
+            print(test_on_single_image(Image.open(sys.argv[2])))
+else:
+    epoch, total_loss = common.load_checkpoint(savefile, model)
+    model.eval()
