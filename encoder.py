@@ -29,58 +29,57 @@ batch_size = 128
 learning_rate = 1e-2
 workers = 5
 
-imageSize = 100
-
-latentDim = 32
+imageSize = 97
 
 class Autoencoder(nn.Module):
     def __init__(self, ngpu):
         super(Autoencoder, self).__init__()
         self.ngpu = ngpu
+        self.lru = nn.LeakyReLU(0.2, inplace=True)
+        # Encoder
         # conv2d output size = (W - K + 2P) / S + 1
-        self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3, stride=2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.BatchNorm2d(64),
-            #nn.MaxPool2d(2),
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.BatchNorm2d(128),
-            #nn.MaxPool2d(2)
-        )
-        self.dence_encoder = nn.Linear(73728, latentDim)
-        self.dence_decoder = nn.Linear(latentDim, 73728)
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=3, stride=2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.BatchNorm2d(64),
-            #nn.MaxUnpool2d(2),
-            nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=3, stride=2, output_padding=1),
-            #nn.LeakyReLU(0.2, inplace=True),
-            #nn.BatchNorm2d(nc)
-            nn.Sigmoid()
-        )
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3)
+        self.pool1 = nn.MaxPool2d(2, return_indices=True)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3)
+        self.pool2 = nn.MaxPool2d(2, return_indices=True)
+        # Decoder
+        self.unpool1 = nn.MaxUnpool2d(2)
+        self.deconv1 = nn.ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=3, stride=2)
+        self.unpool2 = nn.MaxUnpool2d(2)
+        self.deconv2 = nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=3, stride=2)
 
-    def forward(self, x):
+    def forward(self, input):
         """
         if input.is_cuda and self.ngpu > 1:
             output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
         else:
             output = self.main(input)
         """
-        x = self.encoder(x)
-        size = x.size()
-        x = x.reshape(size[0], -1)
-        x = self.dence_encoder(x)
-        x = self.dence_decoder(x)
-        x = x.reshape(size)
-        x = self.decoder(x)
+        x = self.lru(self.conv1(input))
+        print('conv1', x.size())
+        size1 = x.size()
+        x, indices1 = self.pool1(x)
+        print('pool1', x.size())
+        x = self.lru(self.conv2(x))
+        print('conv2', x.size())
+        size2 = x.size()
+        x, indices2 = self.pool2(x)
+        print('pool2', x.size())
+
+        x = self.unpool1(x, indices2, size2)
+        print('unpool1', x.size()) 
+        x = self.lru(self.deconv1(x))
+        print('deconv1', x.size())
+        x = self.unpool2(x, indices1, size1)
+        print('unpool2', x.size())
+        x = self.lru(self.deconv2(x))
+        print('deconv2', x.size())
 
         return x
 
 model = Autoencoder(ngpu).to(device)
-#summary(model, (1, imageSize, imageSize), batch_size)
-#exit()
+summary(model, (1, imageSize, imageSize), batch_size)
+exit()
 
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), learning_rate)

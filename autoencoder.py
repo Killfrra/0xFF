@@ -13,6 +13,10 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 import torch.nn.functional as F
 
+from torchsummary import summary
+
+from PIL.ImageOps import autocontrast
+
 dataroot = 'datasets/top5_real+synth'
 output_folder = 'output'
 savefile = output_folder + '/ae.tar'
@@ -23,7 +27,7 @@ ngpu = 1
 niter = 100
 batch_size = 256
 learning_rate = 1e-2
-workers = 5
+workers = 1
 
 imageSize = 105
 
@@ -34,15 +38,16 @@ class Autoencoder(nn.Module):
     def __init__(self, ngpu):
         super(Autoencoder, self).__init__()
         self.ngpu = ngpu
+        self.lru = nn.LeakyReLU(0.2, inplace=True)
+        self.sig = nn.Sigmoid()
         # Encoder
         # conv2d output size = (W - K + 2P) / S + 1
         self.conv1 = nn.Conv2d(in_channels=nc, out_channels=ndf, kernel_size=11, stride=2)
-        self.lru = nn.LeakyReLU(0.2, inplace=True)
         self.pool1 = nn.MaxPool2d(2, return_indices=True)
-        self.conv2 = nn.Conv2d(in_channels=ndf, out_channels=ndf * 2, kernel_size=1, stride=1)
+        self.conv2 = nn.Conv2d(in_channels=ndf, out_channels=ndf * 2, kernel_size=3, stride=1)
         
         # Decoder
-        self.deconv1 = nn.ConvTranspose2d(in_channels=ndf*2, out_channels=ndf, kernel_size=1, stride=1)
+        self.deconv1 = nn.ConvTranspose2d(in_channels=ndf*2, out_channels=ndf, kernel_size=3, stride=1)
         self.unpool1 = nn.MaxUnpool2d(2)
         self.deconv2 = nn.ConvTranspose2d(in_channels=ndf, out_channels=nc, kernel_size=11, stride=2)
 
@@ -59,19 +64,14 @@ class Autoencoder(nn.Module):
         x = self.lru(self.conv2(x))
         x = self.lru(self.deconv1(x))
         x = self.unpool1(x, indices, size)
-        x = self.lru(self.deconv2(x))
+        x = self.sig(self.deconv2(x))
 
         return x
 
 model = Autoencoder(ngpu).to(device)
 
-"""
-img = torch.empty((128, 1, 105, 105), dtype=torch.float)
-print(img.size())
-output = model(img)
-print(output.size())
-exit()
-"""
+#summary(model, (1, imageSize, imageSize), batch_size)
+#exit()
 
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), learning_rate)
@@ -86,14 +86,16 @@ if os.path.isfile(savefile):
     #total_loss = checkpoint['loss']
     model.train()
 
-dataset = dset.ImageFolder(root=dataroot,
-                            transform=transforms.Compose([
-                                transforms.Grayscale(),
-                                transforms.Resize(imageSize),
-                                transforms.CenterCrop(imageSize),
-                                transforms.ToTensor(),
-                                transforms.Normalize((0.5,), (0.5,)),
-                            ]))
+transform=transforms.Compose([
+    transforms.Grayscale(),
+    transforms.Resize(imageSize),
+    transforms.CenterCrop(imageSize),
+    transforms.Lambda(autocontrast),
+    transforms.ToTensor(),
+    #transforms.Normalize((0.5,), (0.5,)),
+])
+
+dataset = dset.ImageFolder(dataroot, transform)
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=int(workers))
 
 #def train():

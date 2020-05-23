@@ -98,10 +98,12 @@ def random_string_from_dict(length = 3, allow_variable=True):
         current_string += lang_dict[rnd.randrange(dict_len)]
     return current_string
 
-images_per_font = 205
+images_per_font = 410
 for font_name in font_list:
 
-    for i in range(128, images_per_font):
+    savedir = './datasets/top5_real+synth/%s' % font_name[:-4]
+
+    for i in range(len(os.listdir(savedir)), images_per_font):
 
         font = ImageFont.truetype(os.path.join(font_folder, font_name), size=rnd.randint(40, 80))
 
@@ -127,7 +129,6 @@ for font_name in font_list:
         ))
         #print('2', txt_background.size)
 
-        savedir = './datasets/top5_synth_test/%s' % font_name[:-4]
         os.makedirs(savedir, exist_ok=True)
         txt_background.save('%s/%d.tiff' % (savedir, i))
 
