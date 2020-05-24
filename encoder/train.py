@@ -10,7 +10,7 @@ from ignite.engine import Engine, Events
 from ignite.metrics import MeanSquaredError, RunningAverage
 from ignite.handlers import Checkpoint, DiskSaver, EarlyStopping
 from torchsummary import summary
-from autoencoder.model import Autoencoder
+from model import Autoencoder
 
 image_size = 96
 data_transform = transforms.Compose([
@@ -55,10 +55,10 @@ def evaluate_function(engine, batch):
 
 trainer = Engine(process_function)
 evaluator = Engine(evaluate_function)
-
+"""
 training_history = {'mse': []}
 validation_history = {'mse': []}
-
+"""
 RunningAverage(output_transform=lambda x:x).attach(trainer, 'loss')
 MeanSquaredError().attach(evaluator, 'mse')
 
@@ -66,8 +66,8 @@ MeanSquaredError().attach(evaluator, 'mse')
 def log_training_loss(engine):
     print('Epoch %d - Loss: %.4f' % (engine.state.epoch, engine.state.output))
 
-train_batch_size = 128
-val_batch_size = 128
+train_batch_size = 64
+val_batch_size = 64
 num_workers = 6
 train_loader, val_loader = get_data_loaders(train_batch_size, val_batch_size, num_workers)
 
@@ -98,18 +98,9 @@ to_save = { 'trainer': trainer, 'model': model, 'optimizer': optimizer }
 handler = Checkpoint(to_save, DiskSaver('output/autoencoder', require_empty=False), score_function=loss_function, score_name='loss', n_saved=patience * check_interval)
 trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
 
-#if handler.last_checkpoint:
-checkpoint = torch.load('output/autoencoder/checkpoint_loss=-0.045623716315243215.pth') #handler.last_checkpoint)
+last_checkpoint = 'output/autoencoder/checkpoint_loss=-0.045623716315243215.pth'
+checkpoint = torch.load(last_checkpoint)
 Checkpoint.load_objects(to_save, checkpoint)
-print(handler.last_checkpoint, 'loaded')
-
-from PIL import Image
-import torchvision.utils as vutils
-inputs = data_transform(Image.open('datasets/preprocessed_labeled_real/ClearfaceGothicLTStd-Roman/22674.tiff')).unsqueeze_(0).to(device)
-outputs = evaluate_function(None, [inputs])[0]
-vutils.save_image(outputs, 'ae_out.tiff', normalize=True)
-exit()
+print(last_checkpoint, 'loaded')
 
 trainer.run(train_loader, max_epochs=100)
-
-

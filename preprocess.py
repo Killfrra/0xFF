@@ -5,8 +5,6 @@ import torchvision.transforms.functional as F
 from math import floor
 from PIL.ImageOps import autocontrast
 
-basepath = 'datasets/manually_selected_and_cropped_real'
-output = 'datasets/real_unlabeled'
 square_side = 96#px
 min_shift = 20#px
 
@@ -36,7 +34,7 @@ def overlap(side):
     return (int(count), int(overlap), int(discarded))
 
 i = 0
-def generate_crops(image):
+def generate_crops(image, output):
     global i
     width, height = image.size
 
@@ -65,37 +63,46 @@ def generate_crops(image):
 
     return image, width, height
 
-count = 0
 downscale = 0.5
-for image_name in os.listdir(basepath):
-    count -= 1
-    if count == 0:
-        break
-    image_path = '%s/%s' % (basepath, image_name)
-    try:
-        image = Image.open(image_path).convert('L')
-    except ValueError as e:
-        print(image_name, e)
-        continue
-    image = image.crop(image.getbbox())
-    width, height = image.size
-    if min(width, height) < square_side:
-        image = F.resize(image, square_side)
+def process_images_in_folder(basepath, output, k = 1):
+    os.makedirs(output, exist_ok=True)
+    for image_name in os.listdir(basepath):
+        image_path = '%s/%s' % (basepath, image_name)
+        if os.path.isdir(image_path):
+            if k > 0:
+                process_images_in_folder(image_path, '%s/%s' % (output, image_name), k - 1)
+            continue
+
+        try:
+            image = Image.open(image_path).convert('L')
+        except ValueError as e:
+            print(image_name, e)
+            continue
+        image = image.crop(image.getbbox())
         width, height = image.size
-        #image.save('%s/%s_%dx%d.tiff' % (output, image_name, width, height))
-        generate_crops(image)
-    else:
-        while True:
-            print(image_name, width, height)
-            #image.save('%s/%s_%dx%d.tiff' % (output, image_name, width, height))
-            generate_crops(image)
-            new_width = round(width * downscale)
-            new_height = round(height * downscale)
-            if new_width < square_side or new_height < square_side:
-                break
-            image = image.resize((new_width, new_height))
+        if min(width, height) < square_side:
+            image = F.resize(image, square_side)
             width, height = image.size
+            #image.save('%s/%s_%dx%d.tiff' % (output, image_name, width, height))
+            generate_crops(image, output)
+        else:
+            while True:
+                #print(image_name, width, height)
+                #image.save('%s/%s_%dx%d.tiff' % (output, image_name, width, height))
+                generate_crops(image, output)
+                new_width = round(width * downscale)
+                new_height = round(height * downscale)
+                if new_width < square_side or new_height < square_side:
+                    break
+                image = image.resize((new_width, new_height))
+                width, height = image.size
+
+if __name__ == '__main__':
+    process_images_in_folder(
+        #basepath='datasets/manually_selected_and_cropped_real',
+        #output='datasets/preprocessed_unlabeled_real'
+        basepath='datasets/VFR_real_test',
+        output='datasets/preprocessed_labeled_real'
+    )
 
 print(i, 'crops generated')
-    
-    
