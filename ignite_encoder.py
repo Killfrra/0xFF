@@ -116,21 +116,24 @@ def print_trainer_logs(engine):
     avg_loss = engine.state.metrics['loss']
     print('Epoch %d - Avg loss: %.2f' % (engine.state.epoch, avg_loss))
 
-@trainer.on(Events.EPOCH_COMPLETED(every=5))
+check_interval = 2
+patience = 3
+
+@trainer.on(Events.EPOCH_COMPLETED(every=check_interval))
 def check_accuracy(engine):
     evaluator.run(val_loader, max_epochs=1)
 
 def accuracy_function(engine):
     return -engine.state.metrics['mse']
 
-handler = EarlyStopping(1, accuracy_function, trainer)
+handler = EarlyStopping(round(patience / check_interval), accuracy_function, trainer)
 evaluator.add_event_handler(Events.COMPLETED, handler)
 
 def loss_function(engine):
     return -engine.state.metrics['loss']
 
 to_save = { 'trainer': trainer, 'model': model, 'optimizer': optimizer }
-handler = Checkpoint(to_save, DiskSaver('output/autoencoder', require_empty=False), score_function=loss_function, score_name='loss', n_saved=20)
+handler = Checkpoint(to_save, DiskSaver('output/autoencoder', require_empty=False), score_function=loss_function, score_name='loss', n_saved=patience * check_interval)
 trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
 
 if handler.last_checkpoint:
