@@ -1,6 +1,7 @@
 .vscode
 datasets
 output
+data/fonts/top60_ru
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

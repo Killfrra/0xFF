@@ -1,10 +1,10 @@
 import torch.nn as nn
 
 class Autoencoder(nn.Module):
-    def __init__(self, ngpu):
+    def __init__(self, ngpu, enable_decoder=True):
         super(Autoencoder, self).__init__()
         self.ngpu = ngpu
-        self.enable_decoder = True
+        self.enable_decoder = enable_decoder
 
         def down_conv_block(n_input, n_output, k_size=3, stride=1, padding=1):
             return [
