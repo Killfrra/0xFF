@@ -5,7 +5,7 @@ import random as rnd
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-font_folder = 'fonts/top5_real'
+font_folder = 'fonts/top60_ru'
 font_list = os.listdir(font_folder)
 
 def drop_random_shadow(txt_alpha, from_on_to_offset, txt_background):
@@ -82,8 +82,8 @@ def pil_img(np_img):
 
 
 # https://github.com/hingston/russian
-#dict = '10000-russian-words-cyrillic-only.txt'
-dict = 'en-dict.txt'
+dict = '10000-russian-words-cyrillic-only.txt'
+#dict = 'en-dict.txt'
 lang_dict = []
 if os.path.isfile(dict):
     with open(dict, "r", encoding="utf8", errors="ignore") as d:
@@ -98,38 +98,40 @@ def random_string_from_dict(length = 3, allow_variable=True):
         current_string += lang_dict[rnd.randrange(dict_len)]
     return current_string
 
-images_per_font = 410
+images_per_font = 1
+i = 0
 for font_name in font_list:
 
-    savedir = './datasets/top5_real+synth/%s' % font_name[:-4]
+    savedir = './datasets/top60_ru_synth/%s' % 'no_label' #font_name[:-4]
 
-    for i in range(len(os.listdir(savedir)), images_per_font):
+                   #len(os.listdir(savedir))
+    #for i in range(0, images_per_font):
+    i += 1
+    font = ImageFont.truetype(os.path.join(font_folder, font_name), size=rnd.randint(40, 80))
 
-        font = ImageFont.truetype(os.path.join(font_folder, font_name), size=rnd.randint(40, 80))
+    str = random_string_from_dict(1)
+    txt = create_random_txt(str, font)
 
-        str = random_string_from_dict(1)
-        txt = create_random_txt(str, font)
+    txt_alpha = txt.split()[-1]
 
-        txt_alpha = txt.split()[-1]
+    border = 0
+    txt_offset = (border, border)
+    txt_background = Image.new('LA', (txt.size[0] + 2*border, txt.size[1] + 2*border), (255, 255))
 
-        border = 0
-        txt_offset = (border, border)
-        txt_background = Image.new('LA', (txt.size[0] + 2*border, txt.size[1] + 2*border), (255, 255))
+    shadow_count = rnd.randint(0, 5)
+    while shadow_count > 0:
+        drop_random_shadow(txt_alpha, txt_offset, txt_background)
+        shadow_count -= 1
 
-        shadow_count = rnd.randint(0, 5)
-        while shadow_count > 0:
-            drop_random_shadow(txt_alpha, txt_offset, txt_background)
-            shadow_count -= 1
+    #print('1', txt_background.size)
+    txt_background.paste(txt, txt_offset, txt_alpha)
+    txt_background.resize((
+        round(txt_background.size[0] * rnd.uniform(0.5, 1.5)),
+        round(txt_background.size[1] * rnd.uniform(0.5, 1.5))
+    ))
+    #print('2', txt_background.size)
 
-        #print('1', txt_background.size)
-        txt_background.paste(txt, txt_offset, txt_alpha)
-        txt_background.resize((
-            round(txt_background.size[0] * rnd.uniform(0.5, 1.5)),
-            round(txt_background.size[1] * rnd.uniform(0.5, 1.5))
-        ))
-        #print('2', txt_background.size)
-
-        os.makedirs(savedir, exist_ok=True)
-        txt_background.save('%s/%d.tiff' % (savedir, i))
+    os.makedirs(savedir, exist_ok=True)
+    txt_background.save('%s/%d.tiff' % (savedir, i))
 
     

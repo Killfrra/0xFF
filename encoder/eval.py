@@ -4,14 +4,15 @@ import torchvision.utils as vutils
 from ignite.handlers import Checkpoint
 from model import Autoencoder
 import torchvision.transforms as transforms
+import os
 
-cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if cuda else "cpu")
-ngpu = 1
+cuda = False    #cuda = torch.cuda.is_available()
+device = 'cpu'  #device = torch.device("cuda:0" if cuda else "cpu")
+ngpu = 0        #ngpu = 1
 
-model = Autoencoder(ngpu).to(device)
+model = Autoencoder(ngpu) #.to(device)
 
-last_checkpoint = 'output/autoencoder/checkpoint_loss=-0.045623716315243215.pth'
+last_checkpoint = 'output/autoencoder/checkpoint_loss=-0.002959001278966386.pth'
 
 checkpoint = torch.load(last_checkpoint)
 Checkpoint.load_objects({ 'model': model }, checkpoint)
@@ -26,11 +27,13 @@ data_transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-inputs = data_transform(Image.open('datasets/preprocessed_labeled_real/ClearfaceGothicLTStd-Roman/22674.tiff')).unsqueeze_(0).to(device)
+basepath = 'datasets/top60_ru_synth_unlabeled_preprocessed/no_label'
+output = 'output/trash'
+for image_name in os.listdir(basepath):
+    inputs = data_transform(Image.open('%s/%s' % (basepath, image_name))).unsqueeze_(0) #.to(device)
+    model.eval()
+    with torch.no_grad():
+        #inputs = inputs.to(device)
+        outputs = model(inputs)
 
-model.eval()
-with torch.no_grad():
-    inputs = inputs.to(device)
-    outputs = model(inputs)
-
-vutils.save_image(outputs, 'ae_out.tiff', normalize=True)
+    vutils.save_image(outputs, '%s/%s' % (output, image_name), normalize=True)

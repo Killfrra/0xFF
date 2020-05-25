@@ -12,7 +12,23 @@ from ignite.handlers import Checkpoint, DiskSaver, EarlyStopping
 from torchsummary import summary
 from model import Autoencoder
 
-image_size = 96
+#image_size = 96
+learning_rate = 0.01
+# todo: не забыть поменять обратно, когда у нас будет больше неразмеченных данных
+train_dataset = 'datasets/preprocessed_unlabeled_real'
+eval_dataset = 'datasets/preprocessed_labeled_real'
+last_checkpoint = 'output/autoencoder/checkpoint_loss=-0.015746485793698094.pth'
+train_batch_size = 64
+val_batch_size = 64
+num_workers = 6
+
+check_interval = 1
+patience = 2
+ngpu = 1
+
+cuda = torch.cuda.is_available()
+device = torch.device("cuda:0" if cuda and ngpu > 0 else "cpu")
+
 data_transform = transforms.Compose([
     transforms.Grayscale(),
     #transforms.Resize(image_size),
@@ -22,18 +38,12 @@ data_transform = transforms.Compose([
 ])
 
 def get_data_loaders(train_batch_size, val_batch_size, workers):
-    train_loader = DataLoader(datasets.ImageFolder('datasets/preprocessed_unlabeled_real', data_transform), batch_size=train_batch_size, shuffle=True, num_workers=workers)
-    val_loader  =  DataLoader(datasets.ImageFolder('datasets/preprocessed_labeled_real', data_transform), batch_size=train_batch_size, shuffle=True, num_workers=workers)
+    train_loader = DataLoader(datasets.ImageFolder(train_dataset, data_transform), batch_size=train_batch_size, shuffle=True, num_workers=workers)
+    val_loader  =  DataLoader(datasets.ImageFolder(eval_dataset, data_transform), batch_size=train_batch_size, shuffle=True, num_workers=workers)
     
     return train_loader, val_loader
 
-cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if cuda else "cpu")
-ngpu = 1
-
 model = Autoencoder(ngpu).to(device)
-
-learning_rate = 0.01
 optimizer = torch.optim.Adam(model.parameters(), learning_rate)
 criterion = nn.MSELoss()
 
@@ -66,18 +76,19 @@ MeanSquaredError().attach(evaluator, 'mse')
 def log_training_loss(engine):
     print('Epoch %d - Loss: %.4f' % (engine.state.epoch, engine.state.output))
 
-train_batch_size = 64
-val_batch_size = 64
-num_workers = 6
 train_loader, val_loader = get_data_loaders(train_batch_size, val_batch_size, num_workers)
+
+def loss_function(engine):
+    return -engine.state.metrics['loss']
+
+to_save = { 'trainer': trainer, 'model': model, 'optimizer': optimizer }
+handler = Checkpoint(to_save, DiskSaver('output/autoencoder', require_empty=False), score_function=loss_function, score_name='loss', n_saved=patience * check_interval)
+trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
 
 @trainer.on(Events.EPOCH_COMPLETED)
 def print_trainer_logs(engine):
     avg_loss = engine.state.metrics['loss']
     print('Epoch %d - Avg loss: %.4f' % (engine.state.epoch, avg_loss))
-
-check_interval = 1
-patience = 2
 
 @trainer.on(Events.EPOCH_COMPLETED(every=check_interval))
 def check_accuracy(engine):
@@ -91,16 +102,9 @@ def accuracy_function(engine):
 handler = EarlyStopping(round(patience / check_interval), accuracy_function, trainer)
 evaluator.add_event_handler(Events.COMPLETED, handler)
 
-def loss_function(engine):
-    return -engine.state.metrics['loss']
+if last_checkpoint:
+    checkpoint = torch.load(last_checkpoint)
+    Checkpoint.load_objects(to_save, checkpoint)
+    print(last_checkpoint, 'loaded')
 
-to_save = { 'trainer': trainer, 'model': model, 'optimizer': optimizer }
-handler = Checkpoint(to_save, DiskSaver('output/autoencoder', require_empty=False), score_function=loss_function, score_name='loss', n_saved=patience * check_interval)
-trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
-
-last_checkpoint = 'output/autoencoder/checkpoint_loss=-0.045623716315243215.pth'
-checkpoint = torch.load(last_checkpoint)
-Checkpoint.load_objects(to_save, checkpoint)
-print(last_checkpoint, 'loaded')
-
-trainer.run(train_loader, max_epochs=100)
+trainer.run(train_loader, max_epochs=10)
