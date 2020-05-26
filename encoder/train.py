@@ -94,7 +94,7 @@ def check_accuracy(engine):
 
 def accuracy_function(engine):
     accuracy = engine.state.metrics['mse']
-    print('Epoch %d - Accuracy %.4f' % (engine.state.epoch, accuracy))
+    print('Epoch %d - Loss %.4f' % (engine.state.epoch, accuracy))
     return -accuracy
 
 handler = EarlyStopping(round(patience / check_interval), accuracy_function, trainer)

@@ -104,8 +104,16 @@ def random_string_from_dict(length = 3, allow_variable=True):
     return current_string
 
 i = 0
+font_num = 0
 for font_name in font_list:
+    
+    if not(('regular' in font_name) or ('Regular' in font_name)):
+        continue
 
+    if font_num == 5:
+        break
+    font_num += 1   
+    
     savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
 
                    #len(os.listdir(savedir))
@@ -118,7 +126,7 @@ for font_name in font_list:
 
         txt_alpha = txt.split()[-1]
 
-        border = 0
+        border = 10
         txt_offset = (border, border)
         txt_background = Image.new('LA', (txt.size[0] + 2*border, txt.size[1] + 2*border), (255, 255))
 
