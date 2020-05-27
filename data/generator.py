@@ -13,6 +13,7 @@ parser.add_argument('-i', '--images', help='number of images generated per font'
 parser.add_argument('-u', '--unlabeled', default=False, type=bool)
 # https://github.com/hingston/russian
 parser.add_argument('-d', '--dict', default='10000-russian-words-cyrillic-only.txt', type=str)
+parser.add_argument('-r', '--regular', default=False, type=bool)
 args = parser.parse_args()
 
 font_list = os.listdir(args.font_folder)
@@ -107,13 +108,13 @@ i = 0
 font_num = 0
 for font_name in font_list:
     
-    if not(('regular' in font_name) or ('Regular' in font_name)):
-        continue
+    if args.regular:
+        if not(('regular' in font_name) or ('Regular' in font_name)):
+            continue
 
-    if font_num == 5:
-        break
-    font_num += 1   
-    
+    if font_num == 5: break
+    font_num += 1
+
     savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
 
                    #len(os.listdir(savedir))

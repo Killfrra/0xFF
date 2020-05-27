@@ -36,17 +36,12 @@ def overlap(side):
 
     return (int(count), int(overlap), int(discarded))
 
-i = 0
-j = 0
-k = 0
-def generate_crops(image, output):
-    global i, k
+def generate_crops(image):
+
     width, height = image.size
 
     count_x, overlap_x, discarded_x = overlap(width)
     count_y, overlap_y, discarded_y = overlap(height)
-
-    #print(image_name, width, height, count_x, count_y, overlap_x, overlap_y, discarded_x, discarded_y)
 
     if abs(discarded_x) > 0 or abs(discarded_y) > 0:
         image = image.resize((
@@ -63,26 +58,20 @@ def generate_crops(image, output):
             round((background.size[1] - height) / 2)
         ))
         image = background
-        #count_x, overlap_x, discarded_x = overlap(width)
-        #count_y, overlap_y, discarded_y = overlap(height)
-        #print(image_name, width, height, count_x, count_y, overlap_x, overlap_y, discarded_x, discarded_y)
+
+    crops = []
 
     for iy in range(count_y):
         for ix in range(count_x):
             x = (square_side - overlap_x) * ix
             y = (square_side - overlap_y) * iy
-            #print(i, 'crop', x, y, x + square_side, y + square_side)
+            
             crop = image.crop((x, y, x + square_side, y + square_side))
             crop = autocontrast(crop)
 
-            # Uneffective
-            #bbox = crop.getbbox()
-            #if (bbox[2] - bbox[0]) * (bbox[3] - bbox[1]) < (square_side * square_side * 0.6):
-            #    k += 1
-            # else:
-            crop.save('%s/%d.tiff' % (output, i))
-            i += 1
-    return count_x * count_y
+            crops.append(crop)
+
+    return crops
 
 def fit_square(image, square_side):
     width, height = image.size
@@ -97,11 +86,52 @@ def fit_square(image, square_side):
     ))
     return background
 
+def process_image(image):
+
+    image = image.convert('L').crop(image.getbbox())
+
+    width, height = image.size
+
+    if max(width, height) <= square_side:
+        image = fit_square(image, square_side)
+        autocontrast(image)
+        return [image]
+        #return generate_crops(image)
+
+    if min(width, height) > max_size:
+        image = F.resize(image, max_size)
+    
+    all_crops = []
+
+    while True:
+        
+        crops = generate_crops(image)
+        all_crops.extend(crops)
+
+        if len(crops) == 1:
+            return all_crops
+        
+        width, height = image.size
+        new_width = round(width * downscale)
+        new_height = round(height * downscale)
+        
+        if min(new_width, new_height) < min_size:
+            return all_crops
+
+        if max(new_width, new_height) <= square_side:
+            if round(min(width, height) * square_side / max(width, height)) >= min_size:
+                image = fit_square(image, square_side)
+                all_crops.append(image)
+            
+            return all_crops
+
+        image = image.resize((new_width, new_height))
+
 def process_images_in_folder(basepath, output, k = 1):
-    global i, j
+    
     os.makedirs(output, exist_ok=True)
     for image_name in os.listdir(basepath):
-        j += 1
+        
         image_path = '%s/%s' % (basepath, image_name)
         if os.path.isdir(image_path):
             if k > 0:
@@ -109,62 +139,18 @@ def process_images_in_folder(basepath, output, k = 1):
             continue
 
         try:
-            image = Image.open(image_path).convert('L')
+            image = Image.open(image_path)
         except ValueError as e:
             print(image_name, e)
             continue
-        image = image.crop(image.getbbox())
-        width, height = image.size
-        if max(width, height) <= square_side:
-            #image = fit_square(image, square_side)
-            generate_crops(image, output)
-            #image.save('%s/%d.tiff' % (output, i))
-            #i += 1
-        else:
-            if min(width, height) > max_size:
-                """
-                if width > height:
-                    image = image.resize((max_size, round(height*max_size/width)))
-                else:
-                    image = image.resize((round(width*max_size/height), max_size))
-                """
-                image = F.resize(image, max_size)
-            while True:
-                #print(image_name, width, height)
-                count = generate_crops(image, output)
-                if count == 1:
-                    break
-                width, height = image.size
-                new_width = round(width * downscale)
-                new_height = round(height * downscale)
-                
-                if min(new_width, new_height) < min_size:
-                    break
 
-                if max(new_width, new_height) <= square_side:
-                    if round(min(width, height) * square_side / max(width, height)) >= min_size:
-                        image = fit_square(image, square_side)
-                        #generate_crops(image, output)
-                        image.save('%s/%d.tiff' % (output, i))
-                        i += 1
-                    break
-
-                image = image.resize((new_width, new_height))
+        crops = process_image(image)
+        for i, crop in enumerate(crops):
+            crop.save('%s/%d.tiff' % (output, i))
 
 if __name__ == '__main__':
     process_images_in_folder(
-        #basepath='datasets/manually_selected_and_cropped_real',
-        #output='datasets/preprocessed_unlabeled_real'
-        #basepath='datasets/VFR_real_test',
-        #output='datasets/preprocessed_labeled_real'
-        #basepath='datasets/top60_ru_synth_unlabeled',
-        #output='datasets/top60_ru_synth_preprocessed'
-        #basepath='datasets/top5_real',
-        #output='datasets/top5_real_preprocessed'
-        #basepath='datasets/my_real',
-        #output='datasets/my_real_preprocessed'
         basepath=sys.argv[1],
         output=sys.argv[2]
     )
-
-print(i, 'crops generated from', j, 'images. ', k, 'crops filtered')
+    #print(i, 'crops generated from', j, 'images. ', k, 'crops filtered')

@@ -9,13 +9,21 @@ from ignite.engine import Engine, Events
 from ignite.metrics import MeanSquaredError, RunningAverage
 from ignite.handlers import Checkpoint, DiskSaver, EarlyStopping
 from model import Autoencoder
+import glob
+import os
 
 #image_size = 96
 learning_rate = 0.01
 
-train_dataset = 'datasets/preprocessed_unlabeled_real'
-eval_dataset = 'datasets/preprocessed_labeled_real'
-last_checkpoint = 'output/autoencoder/checkpoint_loss=-0.015746485793698094.pth'
+train_dataset = 'datasets/synth+real_preprocessed'
+eval_dataset = 'datasets/synth_unlabeled_preprocessed'
+
+
+def get_last_checkpoint(path):
+    files = sorted(glob.glob(path + '/checkpoint*.pth'), key=os.path.getmtime, reverse=True)
+    return files[0] if len(files) > 0 else None
+
+last_checkpoint = get_last_checkpoint('output/autoencoder')
 train_batch_size = 64
 val_batch_size = 64
 num_workers = 6
@@ -37,7 +45,7 @@ data_transform = transforms.Compose([
 
 def get_data_loaders(train_batch_size, val_batch_size, workers):
     train_loader = DataLoader(datasets.ImageFolder(train_dataset, data_transform), batch_size=train_batch_size, shuffle=True, num_workers=workers)
-    val_loader  =  DataLoader(datasets.ImageFolder(eval_dataset, data_transform), batch_size=train_batch_size, shuffle=True, num_workers=workers)
+    val_loader  =  DataLoader(datasets.ImageFolder(eval_dataset, data_transform), batch_size=train_batch_size, shuffle=False, num_workers=workers)
     
     return train_loader, val_loader
 

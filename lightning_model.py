@@ -42,7 +42,7 @@ class DeepFont(LightningModule):
             return [
                 nn.Linear(in_features, out_features),
                 nn.LeakyReLU(0.2, True),
-                nn.Dropout()
+                #nn.Dropout()
             ]
         
         self.classifier = nn.Sequential(
@@ -71,8 +71,8 @@ class DeepFont(LightningModule):
     def configure_optimizers(self):
         # REQUIRED
         # can return multiple optimizers and learning_rate schedulers
-        # SGD(self.parameters(), lr=self.hparams.lr)
-        return Adam(self.parameters(), lr=self.hparams.lr)
+        # Adam(self.parameters(), lr=self.hparams.lr)
+        return SGD(self.parameters(), self.hparams.lr, self.hparams.momentum)
 
     def train_dataloader(self):
         # REQUIRED
@@ -113,9 +113,10 @@ class DeepFont(LightningModule):
         Specify the hyperparams for this LightningModule
         """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument('--lr', default=1.3182567385564074e-07, type=float)
-        parser.add_argument('--batch-size', default=128, type=int)
-        parser.add_argument('--workers', default=6, type=int)
+        parser.add_argument('-l', '--lr', default=0.002, type=float)
+        parser.add_argument('-m', '--momentum', default=0.9, type=float)
+        parser.add_argument('-b', '--batch-size', default=128, type=int)
+        parser.add_argument('-w', '--workers', default=6, type=int)
 
         return parser
 

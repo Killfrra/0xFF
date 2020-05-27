@@ -12,21 +12,21 @@ def get_last_checkpoint(path):
     return files[0] if len(files) > 0 else None
 
 def main(hparams):
-    encoder = Autoencoder(1, False)
+    encoder = Autoencoder(1, False).to(torch.device("cuda:0"))
 
     output_dir = 'output/autoencoder'
     last_checkpoint = get_last_checkpoint(output_dir)
     checkpoint = torch.load(last_checkpoint)
     encoder.load_state_dict(checkpoint, strict=False)
     encoder.enable_decoder = False
-    print(last_checkpoint, 'loaded')
+    print('LOADED', last_checkpoint, '!')
 
     model = DeepFont(encoder, hparams)
 
     logger = TensorBoardLogger(
         save_dir='lightning_logs',
-        name='',
-        version=5
+        name='no_dropout',
+        #version=5
     )
 
     trainer = Trainer(logger, gpus=hparams.gpus)
