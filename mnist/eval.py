@@ -8,7 +8,7 @@ from torch.nn.functional import softmax
 
 model = Net()
 
-checkpoint = torch.load('saves/mnist_cnn_epoch_14.pt')
+checkpoint = torch.load('saves/mnist_cnn_epoch_8.pt')
 model.load_state_dict(checkpoint['model'])
 model.eval()
 
@@ -18,7 +18,8 @@ def classify(image):
     inputs.unsqueeze_(1)
 
     with torch.no_grad():
-        output = softmax(model(inputs).sum(dim=0), dim=0).tolist()
+        output = model(inputs).tolist()
+        #output = softmax(model(inputs).sum(dim=0), dim=0).tolist()
         return output
 
 if __name__ == '__main__':

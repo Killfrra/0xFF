@@ -9,7 +9,7 @@ from model import Net
 import torch.nn.functional as F
 
 writer = SummaryWriter(
-    log_dir='runs'
+    #log_dir='runs'
 )
 
 metrics = {
@@ -102,18 +102,14 @@ def main():
         datasets.ImageFolder('ram/mini_ru_test_preprocessed', transform),
         batch_size=args.test_batch_size, shuffle=False, **kwargs)
 
-    """
-    train_loader = DataLoader(
-        datasets.MNIST('../datasets', train=True, download=True, transform=transform),
-        batch_size=args.batch_size, shuffle=True, **kwargs
-    )
-    test_loader = DataLoader(
-        datasets.MNIST('../datasets', train=False, transform=transform),
-        batch_size=args.test_batch_size, shuffle=False, **kwargs
-    )
-    """
-
-    model = Net().to(device)
+    model = Net(
+        size=96,
+        ndf=16,
+        n_encoder_layers=2,
+        enable_decoder=False,
+        n_classifier_layers=1,
+        n_fc_layers=3
+    ).to(device)
     optimizer = optim.Adadelta(model.parameters(), args.lr) #, args.momentum)
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     
