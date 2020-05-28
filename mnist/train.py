@@ -89,7 +89,7 @@ def main():
 
     transform = transforms.Compose([
         transforms.Grayscale(),
-        #transforms.Resize((28, 28)),
+        transforms.Resize((56, 56)),
         transforms.ToTensor(),
         #transforms.Normalize((0.1307,), (0.3081,))
     ])
@@ -102,14 +102,7 @@ def main():
         datasets.ImageFolder('ram/mini_ru_test_preprocessed', transform),
         batch_size=args.test_batch_size, shuffle=False, **kwargs)
 
-    model = Net(
-        size=96,
-        ndf=16,
-        n_encoder_layers=2,
-        enable_decoder=False,
-        n_classifier_layers=1,
-        n_fc_layers=3
-    ).to(device)
+    model = Net(False).to(device)
     optimizer = optim.Adadelta(model.parameters(), args.lr) #, args.momentum)
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     
