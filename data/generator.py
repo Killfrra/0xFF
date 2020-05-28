@@ -5,6 +5,8 @@ import random as rnd
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import argparse
+import imgaug as ia
+import imgaug.augmenters as iaa
 
 parser = argparse.ArgumentParser(description='Synthetic data generator', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-f', '--font-folder', default='data/fonts/top60_ru', type=str)
@@ -50,7 +52,7 @@ def create_random_txt(text, font):
     character_spacing = rnd.randint(0, 20)
 
     diff = fill_color - stroke_fill_color
-    if abs(diff) < 20:
+    if abs(diff) < 30:
         fill_color += int(math.copysign(10, diff))
         stroke_fill_color -= int(math.copysign(10, diff))
  
@@ -104,32 +106,49 @@ def random_string_from_dict(length = 3, allow_variable=True):
         current_string += lang_dict[rnd.randrange(dict_len)]
     return current_string
 
+seq = iaa.Sequential([
+    iaa.Crop(percent=0.01),
+    iaa.OneOf([
+        iaa.GaussianBlur(sigma=(0, 1.0)),
+        iaa.MotionBlur(k=3),
+    ]),
+    iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.01*255)),
+    iaa.JpegCompression(compression=(0, 75)),
+    iaa.OneOf([
+        iaa.PerspectiveTransform(scale=(0, 0.05), keep_size=False),
+        iaa.PiecewiseAffine(scale=(0, 0.01)),
+        iaa.ElasticTransformation(alpha=(0, 0.25), sigma=(0, 0.05))
+    ])
+], random_order=True)
+
 i = 0
 font_num = 0
 for font_name in font_list:
     
-    if args.regular:
-        if not(('regular' in font_name) or ('Regular' in font_name)):
-            continue
-
+    if args.regular and not 'regular' in font_name.lower():
+        continue
+    
+    
     if font_num == 5: break
     font_num += 1
+    
 
     savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
+    os.makedirs(savedir, exist_ok=True)
 
                    #len(os.listdir(savedir))
     for _ in range(0, args.images):
     
-        font = ImageFont.truetype(os.path.join(args.font_folder, font_name), size=rnd.randint(40, 80))
+        font = ImageFont.truetype(os.path.join(args.font_folder, font_name), size=rnd.randint(40, 50))
 
         str = random_string_from_dict(1)
         txt = create_random_txt(str, font)
 
         txt_alpha = txt.split()[-1]
 
-        border = 10
+        border = rnd.randint(0, 10)
         txt_offset = (border, border)
-        txt_background = Image.new('LA', (txt.size[0] + 2*border, txt.size[1] + 2*border), (255, 255))
+        txt_background = Image.new('L', (txt.size[0] + 2*border, txt.size[1] + 2*border), 255)
 
         shadow_count = rnd.randint(0, 5)
         while shadow_count > 0:
@@ -144,7 +163,8 @@ for font_name in font_list:
         ))
         #print('2', txt_background.size)
 
-        os.makedirs(savedir, exist_ok=True)
+        txt_background = pil_img(seq(image=np_img(txt_background)))
+
         txt_background.save('%s/%d.tiff' % (savedir, i))
 
         i += 1

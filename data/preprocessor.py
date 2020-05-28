@@ -6,9 +6,9 @@ from math import floor
 from PIL.ImageOps import autocontrast
 import sys
 
-square_side = 96#px
-min_shift = 20#px
-min_size = 20#px
+square_side = 56#px
+min_shift = 30#px
+min_size = 56#px
 max_size = square_side * 1 + min_shift
 downscale = 0.5
 
@@ -127,8 +127,9 @@ def process_image(image):
 
         image = image.resize((new_width, new_height))
 
+i = 0
 def process_images_in_folder(basepath, output, k = 1):
-    
+    global i
     os.makedirs(output, exist_ok=True)
     for image_name in os.listdir(basepath):
         
@@ -145,8 +146,9 @@ def process_images_in_folder(basepath, output, k = 1):
             continue
 
         crops = process_image(image)
-        for i, crop in enumerate(crops):
+        for crop in crops:
             crop.save('%s/%d.tiff' % (output, i))
+            i += 1
 
 if __name__ == '__main__':
     process_images_in_folder(

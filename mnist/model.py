@@ -8,7 +8,7 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.enable_decoder = enable_decoder
 
-        ndf = 16
+        ndf = 32
         self.encoder = nn.Sequential(
             nn.Conv2d( 1, ndf, 3, 1, 1),
             nn.ReLU(True),
@@ -61,6 +61,5 @@ class Net(nn.Module):
         return x
 
 if __name__ == '__main__':
-    image_side = 56
     model = Net(False)
-    summary(model, (1, image_side, image_side), 128, 'cpu')
+    summary(model, (1, 56, 252), 128, 'cpu')

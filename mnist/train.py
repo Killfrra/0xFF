@@ -9,7 +9,7 @@ from model import Net
 import torch.nn.functional as F
 
 writer = SummaryWriter(
-    #log_dir='runs'
+    #log_dir='runs/May28_23-11-41_k'
 )
 
 metrics = {
@@ -81,7 +81,7 @@ def main():
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
-    torch.manual_seed(args.seed)
+    #torch.manual_seed(args.seed)
 
     device = torch.device("cuda" if use_cuda else "cpu")
 
@@ -89,24 +89,38 @@ def main():
 
     transform = transforms.Compose([
         transforms.Grayscale(),
-        transforms.Resize((56, 56)),
+        transforms.Resize(56),
+        transforms.RandomCrop((252, 56), pad_if_needed=True, fill=255),
         transforms.ToTensor(),
         #transforms.Normalize((0.1307,), (0.3081,))
     ])
 
     train_loader = DataLoader(
-        datasets.ImageFolder('ram/mini_ru_train_preprocessed', transform),
+        datasets.ImageFolder('ram/mini_ru_train', transform),
         batch_size=args.batch_size, shuffle=True, **kwargs
     )
     test_loader  =  DataLoader(
-        datasets.ImageFolder('ram/mini_ru_test_preprocessed', transform),
+        datasets.ImageFolder('ram/mini_ru_test', transform),
         batch_size=args.test_batch_size, shuffle=False, **kwargs)
 
     model = Net(False).to(device)
     optimizer = optim.Adadelta(model.parameters(), args.lr) #, args.momentum)
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+
     
-    for epoch in range(1, args.epochs + 1):
+    checkpoint = torch.load('saves/mnist_cnn_epoch_14.pt')
+    model.load_state_dict(checkpoint['model'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    epoch = checkpoint['epoch']
+    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma, last_epoch=(epoch - 1))
+    scheduler.load_state_dict(checkpoint['scheduler'])
+    """
+    epoch = 0
+    """
+    
+    while epoch < args.epochs:
+
+        epoch += 1
+
         train(args, model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
 
@@ -114,7 +128,8 @@ def main():
             to_save = {
                 'epoch': epoch,
                 'model': model.state_dict(),
-                'optimizer': optimizer.state_dict()
+                'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict()
             }
             torch.save(to_save, 'saves/mnist_cnn_epoch_%d.pt' % epoch)
         
