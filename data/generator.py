@@ -139,14 +139,15 @@ for font_name in font_list:
                    #len(os.listdir(savedir))
     for _ in range(0, args.images):
     
-        font = ImageFont.truetype(os.path.join(args.font_folder, font_name), size=rnd.randint(40, 50))
+        font_size = rnd.randint(11, 72)
+        font = ImageFont.truetype(os.path.join(args.font_folder, font_name), size=font_size)
 
         str = random_string_from_dict(1)
         txt = create_random_txt(str, font)
 
         txt_alpha = txt.split()[-1]
 
-        border = rnd.randint(0, 10)
+        border = rnd.randint(0, font_size * 0.3)
         txt_offset = (border, border)
         txt_background = Image.new('L', (txt.size[0] + 2*border, txt.size[1] + 2*border), 255)
 

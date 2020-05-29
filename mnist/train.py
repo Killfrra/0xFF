@@ -2,7 +2,7 @@ import argparse
 import torch
 import torch.optim as optim
 from torchvision import datasets, transforms
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from model import Net
@@ -89,28 +89,29 @@ def main():
 
     transform = transforms.Compose([
         transforms.Grayscale(),
-        transforms.Resize(46),
+        transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
         transforms.ToTensor()
     ])
 
     train_loader = DataLoader(
-        datasets.ImageFolder('ram/mini_ru_train_preprocessed', transform),
-        batch_size=args.batch_size, shuffle=True, **kwargs
+        datasets.ImageFolder('ram/mini_ru_train', transform),
+        batch_size=1, shuffle=True, **kwargs
     )
     test_loader  =  DataLoader(
-        datasets.ImageFolder('ram/mini_ru_test_preprocessed', transform),
-        batch_size=args.test_batch_size, shuffle=False, **kwargs)
+        datasets.ImageFolder('ram/mini_ru_test', transform),
+        batch_size=1, shuffle=False, **kwargs
+    )
 
     model = Net(False).to(device)
     optimizer = optim.Adadelta(model.parameters(), args.lr) #, args.momentum)
-    """
-    checkpoint = torch.load('saves/mnist_cnn_epoch_14.pt')
-    model.load_state_dict(checkpoint['model'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    epoch = checkpoint['epoch']
-    """
+    
+    checkpoint = torch.load('saves/mnist_cnn_epoch_12.pt')
+    model.load_state_dict(checkpoint['model'], strict=False)
+    #optimizer.load_state_dict(checkpoint['optimizer'])
+    #epoch = checkpoint['epoch']
+    
     epoch = 0
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma, last_epoch=(epoch - 1))
+    scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, last_epoch=(epoch - 1))
     """
     scheduler.load_state_dict(checkpoint['scheduler'])
     """
