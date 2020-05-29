@@ -7,11 +7,12 @@ from torchvision.transforms.functional import to_tensor
 from preprocessor import process_image
 from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 
-device = torch.device('cpu')
+device = torch.device('cuda')
 model = Net(False).to(device)
 
-checkpoint = torch.load('saves/mnist_cnn_epoch_28.pt')
+checkpoint = torch.load('saves/mnist_cnn_epoch_12.pt')
 model.load_state_dict(checkpoint['model'])
 model.eval()
 
@@ -20,16 +21,37 @@ out_dir = 'ram/bad'
 def test():
     transform = transforms.Compose([
         transforms.Grayscale(),
-        transforms.Resize((56, 56)),
         transforms.ToTensor(),
         #transforms.Normalize((0.1307,), (0.3081,))
     ])
 
     test_loader = DataLoader(
         datasets.ImageFolder('ram/mini_ru_test', transform),
-        batch_size=128, shuffle=False, num_workers=1, pin_memory=True
+        batch_size=1, shuffle=False, num_workers=1, pin_memory=True
     )
 
+    model.eval()
+    test_loss = 0
+    correct = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            try:
+                output = model(data)
+            except RuntimeError as e:
+                print(e)
+            test_loss += F.cross_entropy(output, target, reduction='sum').item()  # sum up batch loss
+            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+            correct += pred.eq(target.view_as(pred)).sum().item()
+
+    test_loss /= len(test_loader.dataset)
+    accuracy = correct / len(test_loader.dataset) 
+
+    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        test_loss, correct, len(test_loader.dataset),
+        100. * accuracy))
+
+    """
     model.eval()
     i = 0
     with torch.no_grad():
@@ -42,14 +64,16 @@ def test():
             if selection.size(0) > 0:
                 utils.save_image(selection, '%s/%d.tiff' % (out_dir, i), normalize=True)
                 i += 1
+    """
             
 
 
 def classify(image):
-    crops = process_image(image)
+    #crops = process_image(image)
+    crops = [image]
 
-    for i, crop in enumerate(crops):
-        crop.save('%d.tiff' % i)
+    #for i, crop in enumerate(crops):
+    #    crop.save('%d.tiff' % i)
 
     inputs = torch.cat([ to_tensor(crop) for crop in crops ], dim=0)
     inputs.unsqueeze_(1)

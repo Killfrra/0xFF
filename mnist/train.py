@@ -89,34 +89,31 @@ def main():
 
     transform = transforms.Compose([
         transforms.Grayscale(),
-        transforms.Resize(56),
-        transforms.RandomCrop((252, 56), pad_if_needed=True, fill=255),
-        transforms.ToTensor(),
-        #transforms.Normalize((0.1307,), (0.3081,))
+        transforms.Resize(46),
+        transforms.ToTensor()
     ])
 
     train_loader = DataLoader(
-        datasets.ImageFolder('ram/mini_ru_train', transform),
+        datasets.ImageFolder('ram/mini_ru_train_preprocessed', transform),
         batch_size=args.batch_size, shuffle=True, **kwargs
     )
     test_loader  =  DataLoader(
-        datasets.ImageFolder('ram/mini_ru_test', transform),
+        datasets.ImageFolder('ram/mini_ru_test_preprocessed', transform),
         batch_size=args.test_batch_size, shuffle=False, **kwargs)
 
     model = Net(False).to(device)
     optimizer = optim.Adadelta(model.parameters(), args.lr) #, args.momentum)
-
-    
+    """
     checkpoint = torch.load('saves/mnist_cnn_epoch_14.pt')
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     epoch = checkpoint['epoch']
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma, last_epoch=(epoch - 1))
-    scheduler.load_state_dict(checkpoint['scheduler'])
     """
     epoch = 0
+    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma, last_epoch=(epoch - 1))
     """
-    
+    scheduler.load_state_dict(checkpoint['scheduler'])
+    """
     while epoch < args.epochs:
 
         epoch += 1

@@ -8,16 +8,18 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.enable_decoder = enable_decoder
 
-        ndf = 32
+        ndf = 40
+        n_classes = 5
+
         self.encoder = nn.Sequential(
-            nn.Conv2d( 1, ndf, 3, 1, 1),
+            nn.Conv2d( 1, ndf, 4, 2),
             nn.ReLU(True),
             nn.BatchNorm2d(ndf),
-            nn.MaxPool2d(2),
-            nn.Conv2d(ndf, 2*ndf, 3, 1, 1),
+            #nn.MaxPool2d(2),
+            nn.Conv2d(ndf, 2*ndf, 4, 2),
             nn.ReLU(True),
             nn.BatchNorm2d(2*ndf),
-            nn.MaxPool2d(2),
+            #nn.MaxPool2d(2)
         )
 
         if enable_decoder:
@@ -34,16 +36,22 @@ class Net(nn.Module):
         else:
 
             self.classifier = nn.Sequential(
-                nn.Conv2d(2*ndf, 4*ndf, 3, 1),
+                nn.Conv2d(2*ndf, 4*ndf, 4, 2),
                 nn.ReLU(True),
                 nn.BatchNorm2d(4*ndf),
-                nn.Conv2d(4*ndf, 4*ndf, 3, 1),
+                #nn.MaxPool2d(2),
+                nn.Conv2d(4*ndf, 8*ndf, 4, 2),
                 nn.ReLU(True),
-                nn.BatchNorm2d(4*ndf)
+                nn.BatchNorm2d(8*ndf),
+                #nn.MaxPool2d(2)
+                #nn.Conv2d(8*ndf, 16*ndf, 4, 2),
+                #nn.ReLU(True),
+                #nn.BatchNorm2d(16*ndf),
+                #nn.AdaptiveAvgPool2d(1)
             )
 
             self.fc = nn.Sequential(
-                nn.Linear(1*4*ndf, 5)
+                nn.Linear(8*ndf, n_classes)
             )
 
     def forward(self, x):
@@ -62,4 +70,4 @@ class Net(nn.Module):
 
 if __name__ == '__main__':
     model = Net(False)
-    summary(model, (1, 56, 252), 128, 'cpu')
+    summary(model, (1, 46, 46), 128, 'cpu')
