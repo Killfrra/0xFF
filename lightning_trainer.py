@@ -1,43 +1,41 @@
-from encoder.model import Autoencoder
-from lightning_model import DeepFont
+from lightning_model import Net
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
-from argparse import ArgumentParser
-import torch
-import os
-import glob
+from pytorch_lightning.callbacks import ModelCheckpoint
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+import argparse
 
-def get_last_checkpoint(path):
-    files = sorted(glob.glob(path + '/checkpoint*.pth'), key=os.path.getmtime, reverse=True)
-    return files[0] if len(files) > 0 else None
+hparams = argparse.Namespace()
+hparams.batch_size = 1
+hparams.learning_rate = 1
 
-def main(hparams):
-    encoder = Autoencoder(1, False).to(torch.device("cuda:0"))
+model = Net(hparams)
+checkpoint_callback = ModelCheckpoint('mnist/saves', monitor='val_acc', save_top_k=10)
 
-    output_dir = 'output/autoencoder'
-    last_checkpoint = get_last_checkpoint(output_dir)
-    checkpoint = torch.load(last_checkpoint)
-    encoder.load_state_dict(checkpoint, strict=False)
-    encoder.enable_decoder = False
-    print('LOADED', last_checkpoint, '!')
+kwargs = {'num_workers': 16, 'pin_memory': True}
 
-    model = DeepFont(encoder, hparams)
+transform = transforms.Compose([
+    transforms.Grayscale(),
+    transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
+    #transforms.Resize(63),
+    #transforms.RandomCrop(63),
+    transforms.ToTensor()
+])
 
-    logger = TensorBoardLogger(
-        save_dir='lightning_logs',
-        name='no_dropout',
-        #version=5
-    )
+train_loader = DataLoader(
+    datasets.ImageFolder('mnist/ram/mini_ru_train', transform),
+    batch_size=hparams.batch_size, shuffle=True, **kwargs
+)
+val_loader   = DataLoader(
+    datasets.ImageFolder('mnist/ram/mini_ru_test', transform),
+    batch_size=hparams.batch_size, shuffle=False, **kwargs
+)
 
-    trainer = Trainer(logger, gpus=hparams.gpus)
-
-    trainer.fit(model)
-
-if __name__ == '__main__':
-    parser = ArgumentParser(add_help=False)
-    parser = Trainer.add_argparse_args(parser)
-    parser = DeepFont.add_model_specific_args(parser)
-
-    args = parser.parse_args()
-
-    main(args)
+trainer = Trainer(
+    gpus=1, accumulate_grad_batches=2048,
+    checkpoint_callback=checkpoint_callback,
+    #auto_lr_find=True
+    resume_from_checkpoint='mnist/saves/epoch=7_v1.ckpt'
+)
+trainer.fit(model, train_loader, val_loader)

@@ -24,15 +24,17 @@ def train(args, model, device, train_loader, optimizer, epoch):
     train_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
-        optimizer.zero_grad()
+        
         output = model(data)
         loss = F.cross_entropy(output, target)
 
         train_loss += loss.item()
 
         loss.backward()
-        optimizer.step()
+        
         if batch_idx % args.log_interval == 0:
+            optimizer.step()
+            optimizer.zero_grad()
             writer.add_scalar('train_loss', loss.item())
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -40,6 +42,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
 
     train_loss /= len(train_loader)
     metrics['avg_train_loss'] = train_loss
+    print('avg train loss', train_loss)
         
 
 
@@ -85,11 +88,12 @@ def main():
 
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+    kwargs = {'num_workers': 16, 'pin_memory': True} if use_cuda else {}
 
     transform = transforms.Compose([
         transforms.Grayscale(),
-        transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
+        transforms.Resize(63),
+        #transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
         transforms.ToTensor()
     ])
 
@@ -104,12 +108,12 @@ def main():
 
     model = Net(False).to(device)
     optimizer = optim.Adadelta(model.parameters(), args.lr) #, args.momentum)
-    
+    """
     checkpoint = torch.load('saves/mnist_cnn_epoch_12.pt')
     model.load_state_dict(checkpoint['model'], strict=False)
     #optimizer.load_state_dict(checkpoint['optimizer'])
     #epoch = checkpoint['epoch']
-    
+    """
     epoch = 0
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, last_epoch=(epoch - 1))
     """

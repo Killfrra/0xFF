@@ -1,7 +1,8 @@
 import os
+import sys
 from fontTools.ttLib import TTFont, TTLibError
 
-basepath = 'fonts'
+basepath = sys.argv[1] 
 char = ord('я')
 
 for font_name in os.listdir(basepath):

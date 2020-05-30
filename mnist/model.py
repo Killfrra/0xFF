@@ -15,29 +15,30 @@ class Net(nn.Module):
             
             nn.Conv2d( 1, ndf, 3, 2),
             nn.ReLU(True),
-            nn.Identity(),
-            #nn.BatchNorm2d(ndf),
+            #nn.Identity(),
+            nn.BatchNorm2d(ndf),
 
             nn.Conv2d(ndf, 2*ndf, 3, 2),
             nn.ReLU(True),
-            nn.Identity(),
-            #nn.BatchNorm2d(2*ndf),
+            #nn.Identity(),
+            nn.BatchNorm2d(2*ndf),
             
             nn.Conv2d(2*ndf, 4*ndf, 3, 2),
             nn.ReLU(True),
-            nn.Identity(),
-            #nn.BatchNorm2d(4*ndf),
+            #nn.Identity(),
+            nn.BatchNorm2d(4*ndf),
 
             nn.Conv2d(4*ndf, 8*ndf, 3, 2),
             nn.ReLU(True),
-            nn.Identity(),
-            #nn.BatchNorm2d(8*ndf),
+            #nn.Identity(),
+            nn.BatchNorm2d(8*ndf),
 
             nn.Conv2d(8*ndf, 16*ndf, 3, 2),
             nn.ReLU(True),
-            nn.Identity(),
+            #nn.Identity(),
             #nn.BatchNorm2d(16*ndf),
 
+            #nn.AdaptiveAvgPool2d(1)
             nn.AdaptiveMaxPool2d(1)
         )
 
@@ -50,8 +51,8 @@ class Net(nn.Module):
         x = self.classifier(x)
         #print(x.size())
         x = torch.flatten(x, 1)
-        #x = x.mean(dim=2)
-        #x = x.mean(dim=2)
+        #x, _ = x.max(dim=2)
+        #x, _ = x.max(dim=2)
         x = self.fc(x)
     
         return x

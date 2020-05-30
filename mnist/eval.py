@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
 device = torch.device('cuda')
-model = Net(False)  #.to(device)
+model = Net(False).to(device)
 
 checkpoint = torch.load('saves/mnist_cnn_epoch_12.pt')
 model.load_state_dict(checkpoint['model'])
@@ -20,8 +20,8 @@ out_dir = 'ram/bad'
 
 transform = transforms.Compose([
     transforms.Grayscale(),
-    transforms.Resize(63),
-    #transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
+    #transforms.Resize(63),
+    transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
     transforms.ToTensor(),
 ])
 
@@ -31,7 +31,7 @@ def test():
         datasets.ImageFolder('ram/mini_ru_test', transform),
         batch_size=1, shuffle=False, num_workers=1, pin_memory=True
     )
-    """
+    
     model.eval()
     test_loss = 0
     correct = 0
@@ -69,7 +69,7 @@ def test():
             if selection.size(0) > 0:
                 utils.save_image(selection, '%s/%d.tiff' % (out_dir, i), normalize=True)
                 i += 1
-    
+    """
             
 
 
@@ -90,5 +90,5 @@ def classify(image):
         return output
 
 if __name__ == '__main__':
-    print(classify(Image.open(sys.argv[1])))
-    #test()
+    #print(classify(Image.open(sys.argv[1])))
+    test()
