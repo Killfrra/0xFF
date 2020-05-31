@@ -1,4 +1,4 @@
-from mobilenet import Net
+from lightning_model import Net
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -18,8 +18,8 @@ kwargs = {'num_workers': 16, 'pin_memory': True}
 transform = transforms.Compose([
     transforms.Grayscale(),
     #transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
-    transforms.Resize(63),
-    transforms.RandomCrop(63),
+    transforms.Resize(64),
+    transforms.RandomCrop(64),
     transforms.ToTensor()
 ])
 
