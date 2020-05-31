@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import argparse
 
 hparams = argparse.Namespace()
-hparams.batch_size = 128
+hparams.batch_size = 2048
 hparams.learning_rate = 0.5754399373371567 #1.0964781961431852e-07
 
 model = Net(hparams) #.load_from_checkpoint('mnist/saves/epoch=27_v2.ckpt')
@@ -18,8 +18,8 @@ kwargs = {'num_workers': 16, 'pin_memory': True}
 transform = transforms.Compose([
     transforms.Grayscale(),
     #transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
-    transforms.Resize(64),
-    transforms.RandomCrop(64),
+    transforms.Resize(63),
+    transforms.RandomCrop(63),
     transforms.ToTensor()
 ])
 

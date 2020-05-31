@@ -13,33 +13,20 @@ class Net(LightningModule):
         ndf = 64
         n_classes = 5
 
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(    1,   ndf, 3, 1, 1), nn.ReLU6(True), nn.BatchNorm2d(ndf)
-        )
-        self.conv2 = nn.Sequential(
-            nn.Conv2d(  ndf, 2*ndf, 3, 1, 1), nn.ReLU6(True), nn.BatchNorm2d(2*ndf)
-        )
-        self.conv3 = nn.Sequential(
-            nn.Conv2d(2*ndf, 4*ndf, 3, 1, 1), nn.ReLU6(True), nn.BatchNorm2d(4*ndf)
+        self.classifier = nn.Sequential(
+            nn.Conv2d(    1,   ndf, 3, 1, 1), nn.ReLU6(True), nn.BatchNorm2d(ndf),
+            nn.Conv2d(  ndf, 2*ndf, 3, 1, 1), nn.ReLU6(True), nn.BatchNorm2d(2*ndf),
+            nn.Conv2d(2*ndf, 4*ndf, 3, 1, 1), nn.ReLU6(True), nn.BatchNorm2d(4*ndf),
+            nn.AdaptiveMaxPool2d(7)
         )
         self.fc = nn.Sequential(
             nn.Linear(8*8*4*ndf, n_classes),
         )
 
     def forward(self, x):
-        w, h = x.size()[2:]
-        cw = (8 / w)**(1/3)
-        ch = (8 / h)**(1/3)
-
-        x = self.conv1(x)
-        x = F.adaptive_max_pool2d(x, (floor(w * cw), floor(h * ch)))
-        x = self.conv2(x)
-        x = F.adaptive_max_pool2d(x, (floor(w * cw * cw), floor(h * ch * ch)))
-        x = self.conv3(x)
-        x = F.adaptive_max_pool2d(x, (floor(w * cw * cw * cw), floor(h * ch * ch * ch)))
+        x = self.classifier(x)
         x = x.flatten(1)
         x = self.fc(x)
-    
         return x
     
     def training_step(self, batch, batch_idx):
@@ -74,4 +61,4 @@ class Net(LightningModule):
 if __name__ == '__main__':
     from torchsummary import summary
     model = Net(None)
-    summary(model, (1, 64, 64), 128, 'cpu')
+    summary(model, (1, 63, 63), 128, 'cpu')
