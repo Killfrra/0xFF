@@ -4,28 +4,24 @@ from PIL import Image
 import sys
 from torchvision import datasets, transforms, utils
 from torchvision.transforms.functional import to_tensor
-from preprocessor import process_image
 from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import argparse
 
-device = torch.device('cuda')
+device = torch.device('cpu')
 hparams = argparse.Namespace()
-hparams.batch_size = 1024
-hparams.learning_rate = 0.5754399373371567
+hparams.batch_size = 1
 
-model = Net(hparams).to(device)
-
-model.load_from_checkpoint('mnist/saves/epoch=27_v2.ckpt')
+model = Net.load_from_checkpoint('mnist/saves/epoch=9_v4.ckpt').to(device)
 model.eval()
 
-out_dir = 'ram/bad'
+out_dir = 'mnist/ram/bad'
 
 transform = transforms.Compose([
     transforms.Grayscale(),
     transforms.Resize(63),
-    transforms.RandomCrop(63),
+    #transforms.RandomCrop(63),
     #transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
     transforms.ToTensor()
 ])
@@ -33,22 +29,18 @@ transform = transforms.Compose([
 def test():
 
     test_loader = DataLoader(
-        datasets.ImageFolder('ram/mini_ru_test', transform),
-        batch_size=1024, shuffle=False, num_workers=6, pin_memory=True
+        datasets.ImageFolder('mnist/ram/mini_ru_test', transform),
+        batch_size=hparams.batch_size, shuffle=False, num_workers=6, pin_memory=True
     )
     
-    model.eval()
+    """
     test_loss = 0
     correct = 0
     classified = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            #try:
             output = model(data)
-            #except RuntimeError as e:
-                #print(e)
-            #    continue
             classified += data.size(0)
             test_loss += F.cross_entropy(output, target, reduction='sum').item()  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
@@ -62,7 +54,6 @@ def test():
         100. * accuracy))
 
     """
-    model.eval()
     i = 0
     with torch.no_grad():
         for data, target in test_loader:
@@ -74,9 +65,7 @@ def test():
             if selection.size(0) > 0:
                 utils.save_image(selection, '%s/%d.tiff' % (out_dir, i), normalize=True)
                 i += 1
-    """
-            
-
+    #"""
 
 def classify(image):
     #crops = process_image(image)
@@ -90,10 +79,14 @@ def classify(image):
     inputs.unsqueeze_(1)
 
     with torch.no_grad():
+        output = model.classifier(inputs)
+        #utils.save_image(output, 'mnist/ram/eval.tiff', normalize=True)
         #output = model(inputs).tolist()
-        output = softmax(model(inputs).sum(dim=0), dim=0).tolist()
-        return output
+        #output = softmax(model(inputs).sum(dim=0), dim=0).tolist()
+        print(output.size())
+        for i in range(output.size(1)):
+            utils.save_image(output[0][i], 'mnist/ram/layer_%d.tiff' % i, normalize=True)
 
 if __name__ == '__main__':
-    #print(classify(Image.open(sys.argv[1])))
-    test()
+    print(classify(Image.open(sys.argv[1])))
+    #test()

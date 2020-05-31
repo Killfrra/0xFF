@@ -1,61 +1,34 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import pytorch_lightning as pl
+from pytorch_lightning import LightningModule
 
-class Net(pl.LightningModule):
+class Net(LightningModule):
     def __init__(self, hparams):
         super(Net, self).__init__()
 
         self.hparams = hparams
 
-        ndf = 16
+        ndf = 64
         n_classes = 5
 
         self.classifier = nn.Sequential(
             
-            nn.Conv2d( 1, ndf, 3, 2),
-            nn.ReLU(True),
-            #nn.Identity(),
-            nn.BatchNorm2d(ndf),
+            nn.Conv2d(    1,   ndf, 3, 2), nn.ReLU6(True), nn.BatchNorm2d(ndf),
+            nn.Conv2d(  ndf, 2*ndf, 3, 2), nn.ReLU6(True), nn.BatchNorm2d(2*ndf),
+            nn.Conv2d(2*ndf, 4*ndf, 3, 2), nn.ReLU6(True), nn.BatchNorm2d(4*ndf),
 
-            nn.Conv2d(ndf, 2*ndf, 3, 2),
-            nn.ReLU(True),
-            #nn.Identity(),
-            nn.BatchNorm2d(2*ndf),
-            
-            nn.Conv2d(2*ndf, 4*ndf, 3, 2),
-            nn.ReLU(True),
-            #nn.Identity(),
-            nn.BatchNorm2d(4*ndf),
-
-            nn.Conv2d(4*ndf, 8*ndf, 3, 2),
-            nn.ReLU(True),
-            #nn.Identity(),
-            #nn.BatchNorm2d(8*ndf)
-            
-            nn.Conv2d(8*ndf, 16*ndf, 3, 2),
-            #nn.ReLU(True),
-
-            #nn.Conv2d(8*ndf, n_classes, 1),
-            #nn.ReLU(True),
-
-            #nn.AdaptiveAvgPool2d(1)
-            #nn.AdaptiveMaxPool2d(1)
+            nn.AdaptiveAvgPool2d(7)
         )
 
         self.fc = nn.Sequential(
-            nn.Linear(16*ndf, n_classes)
+            nn.Linear(7*7*4*ndf, n_classes),
         )
-
-        self.metrics_loss = 0
 
     def forward(self, x):
 
         x = self.classifier(x)
-        #x = torch.flatten(x, 1)
-        x, _ = x.max(dim=2)
-        x, _ = x.max(dim=2)
+        x = x.flatten(1)
         x = self.fc(x)
     
         return x
@@ -65,10 +38,7 @@ class Net(pl.LightningModule):
         output = self.forward(data)
         loss = F.cross_entropy(output, target)
 
-        self.metrics_loss = loss
-
-        #tensorboard_logs = {'train_loss': loss}
-        return {'loss': loss}    #, 'log': tensorboard_logs}
+        return { 'loss': loss }
 
     def validation_step(self, batch, batch_idx):
         data, target = batch
@@ -89,7 +59,7 @@ class Net(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adadelta(self.parameters(), lr=self.hparams.learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=1, verbose=True)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=2, verbose=True)
         return [ optimizer ], [ scheduler ]
 
 if __name__ == '__main__':
