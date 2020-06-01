@@ -14,13 +14,13 @@ class Net(LightningModule):
         n_classes = 5
 
         self.classifier = nn.Sequential(
-            nn.Conv2d(    1,   ndf, 3, 1, 1), nn.ReLU6(True), nn.BatchNorm2d(ndf),
-            nn.Conv2d(  ndf, 2*ndf, 3, 1, 1), nn.ReLU6(True), nn.BatchNorm2d(2*ndf),
-            nn.Conv2d(2*ndf, 4*ndf, 3, 1, 1), nn.ReLU6(True), nn.BatchNorm2d(4*ndf),
+            nn.Conv2d(    1,   ndf, 3, 2), nn.ReLU(True), nn.BatchNorm2d(ndf),
+            nn.Conv2d(  ndf, 2*ndf, 3, 2), nn.ReLU(True), nn.BatchNorm2d(2*ndf),
+            nn.Conv2d(2*ndf, 4*ndf, 3, 2), nn.ReLU(True), nn.BatchNorm2d(4*ndf),
             nn.AdaptiveMaxPool2d(7)
         )
         self.fc = nn.Sequential(
-            nn.Linear(8*8*4*ndf, n_classes),
+            nn.Linear(7*7*4*ndf, n_classes)
         )
 
     def forward(self, x):

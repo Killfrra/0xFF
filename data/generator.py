@@ -5,8 +5,8 @@ import random as rnd
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import argparse
-import imgaug as ia
-import imgaug.augmenters as iaa
+#import imgaug as ia
+#import imgaug.augmenters as iaa
 
 parser = argparse.ArgumentParser(description='Synthetic data generator', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-f', '--font-folder', default='data/fonts/top60_ru', type=str)
@@ -82,11 +82,24 @@ def create_txt(text, character_spacing, fill, font, stroke_width, stroke_fill, f
         txt_img_draw.text((cx, stroke_width), c, fill, font)
         cx += piece_widths[i] + character_spacing
         i += 1
+
+    mask = Image.new('L', txt_img.size, 0)
+    mask_draw = ImageDraw.Draw(mask)
+
+    cx = stroke_width
+    i = 0
+    for c in text:
+        mask_draw.text((cx, stroke_width), c, 255, font)
+        cx += piece_widths[i] + character_spacing
+        i += 1
+
+    #mask.save('%s/%d_mask.tiff' % ('datasets/test', rnd.randint(1, 5)))
     
     if fit:
-        return txt_img.crop(txt_img.getbbox())
+        bbox = txt_img.getbbox()
+        return (txt_img.crop(bbox), mask.crop(bbox))
     else:
-        return txt_img
+        return txt_img, mask
 
 def np_img(pil_img):
     return np.array(pil_img)
@@ -145,6 +158,7 @@ def image_background(size): # from trdg.background_generator
 
     return pic.crop((x, y, x + width, y + height))
 
+"""
 seq = iaa.Sequential([
     iaa.Sometimes(0.5, [
         iaa.PerspectiveTransform(keep_size=False, cval=ia.ALL, mode=ia.ALL),
@@ -166,6 +180,7 @@ seq = iaa.Sequential([
     iaa.JpegCompression(compression=(0, 75)),
     iaa.Crop(percent=0.01),
 ])
+"""
 
 i = 0
 font_num = 0
@@ -174,21 +189,21 @@ for font_name in font_list:
     if args.regular and not 'regular' in font_name.lower():
         continue
 
-    if font_num == 5: break
-    font_num += 1
-    if font_num < 4: continue
-
+    #if font_num == 5: break
+    #font_num += 1
+    #if font_num < 4: continue
+    
     savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
     os.makedirs(savedir, exist_ok=True)
 
-                   #
-    for _ in range(len(os.listdir(savedir)), args.images):
+                   #len(os.listdir(savedir))
+    for _ in range(0, args.images):
     
         font_size = rnd.randint(32, 72)
         font = ImageFont.truetype(os.path.join(args.font_folder, font_name), size=font_size)
 
         str = random_string_from_dict(1)
-        txt = create_random_txt(str, font, font_size)
+        txt, mask = create_random_txt(str, font, font_size)
 
         txt_alpha = txt.split()[-1]
 
@@ -202,16 +217,14 @@ for font_name in font_list:
             drop_random_shadow(txt_alpha, txt_offset, txt_background)
             shadow_count -= 1
 
-        #print('1', txt_background.size)
         txt_background.paste(txt, txt_offset, txt_alpha)
-        #txt_background.resize((
-        #    round(txt_background.size[0] * rnd.uniform(0.5, 1.5)),
-        #    round(txt_background.size[1] * rnd.uniform(0.5, 1.5))
-        #))
-        #print('2', txt_background.size)
-        
-        txt_background = pil_img(seq(image=np_img(txt_background)))
 
+        txt_mask = Image.new('L', bg_size, 0)
+        txt_mask.paste(mask, txt_offset)
+
+        #txt_background = pil_img(seq(image=np_img(txt_background)))
+        
+        txt_mask.save('%s/%d_mask.tiff' % (savedir, i))
         txt_background.save('%s/%d.tiff' % (savedir, i))
 
         i += 1

@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import argparse
 
 hparams = argparse.Namespace()
-hparams.batch_size = 2048
+hparams.batch_size = 64
 hparams.learning_rate = 0.5754399373371567 #1.0964781961431852e-07
 
 model = Net(hparams) #.load_from_checkpoint('mnist/saves/epoch=27_v2.ckpt')
@@ -33,7 +33,7 @@ val_loader   = DataLoader(
 )
 
 trainer = Trainer(
-    gpus=1, accumulate_grad_batches=2048 if hparams.batch_size == 1 else 1,
+    gpus=1, accumulate_grad_batches=32,
     checkpoint_callback=checkpoint_callback,
     auto_lr_find=True
     #resume_from_checkpoint='mnist/saves/epoch=31_v1.ckpt'
