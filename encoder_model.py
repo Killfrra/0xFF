@@ -28,13 +28,22 @@ class Autoencoder(LightningModule):
         self.encoder = nn.Sequential(
             # 64
             * down_conv_block(1, 16, stride=1),
-            * down_conv_block(16, 16),
+            nn.Identity(),
+            nn.Identity(),
+            nn.Identity(),
+            #* down_conv_block(16, 16),
             # 32
             * down_conv_block(16, 32, stride=1),
-            * down_conv_block(32, 32),
+            nn.Identity(),
+            nn.Identity(),
+            nn.Identity(),
+            #* down_conv_block(32, 32),
             # 16
             * down_conv_block(32, 64, stride=1),
-            * down_conv_block(64, 64),
+            nn.Identity(),
+            nn.Identity(),
+            nn.Identity(),
+            #* down_conv_block(64, 64),
             # 8
         )
         self.decoder = nn.Sequential(
@@ -59,7 +68,7 @@ class Autoencoder(LightningModule):
     def training_step(self, batch, batch_idx):
         data, target = batch
         output = self.forward(data)
-        loss = F.mse_loss(output, target)
+        loss = F.mse_loss(output, data)
 
         return { 'loss': loss }
 
@@ -73,7 +82,7 @@ class Autoencoder(LightningModule):
     def validation_step(self, batch, batch_idx):
         data, target = batch
         output = self.forward(data)
-        loss = F.mse_loss(output, target)
+        loss = F.mse_loss(output, data)
 
         return { 'val_loss': loss }
 
@@ -103,7 +112,22 @@ def train():
     from pytorch_lightning.callbacks import ModelCheckpoint
     from torch.utils.data import DataLoader
     
-    model = Autoencoder(hparams)    #.load_from_checkpoint('mnist/saves/epoch=27_v2.ckpt')
+    checkpoint = torch.load('saves/autoencoder/epoch=48.ckpt')
+    
+    del checkpoint['state_dict']['encoder.3.weight']
+    #del checkpoint['state_dict']['encoder.4.weight']
+    del checkpoint['state_dict']['encoder.5.weight']
+
+    del checkpoint['state_dict']['encoder.9.weight']
+    #del checkpoint['state_dict']['encoder.10.weight']
+    del checkpoint['state_dict']['encoder.11.weight']
+
+    del checkpoint['state_dict']['encoder.15.weight']
+    #del checkpoint['state_dict']['encoder.16.weight']
+    del checkpoint['state_dict']['encoder.17.weight']
+
+    model = Autoencoder(hparams, enable_decoder=True) #.load_from_checkpoint('saves/autoencoder/epoch=33.ckpt')
+    model.load_state_dict(checkpoint['state_dict'], strict=False)
     checkpoint_callback = ModelCheckpoint('saves/autoencoder', save_top_k=10)
 
     kwargs = {'num_workers': 16, 'pin_memory': True}
@@ -120,7 +144,7 @@ def train():
     trainer = Trainer(
         gpus=1, #accumulate_grad_batches=32,
         checkpoint_callback=checkpoint_callback,
-        #auto_lr_find=True
+        auto_lr_find=True
         #resume_from_checkpoint='mnist/saves/epoch=31_v1.ckpt'
     )
     trainer.fit(model, train_loader, val_loader)
@@ -132,7 +156,7 @@ def main():
 
 def eval():
     from torchvision.transforms.functional import to_pil_image
-    model = Autoencoder.load_from_checkpoint('saves/autoencoder/epoch=33.ckpt')
+    model = Autoencoder.load_from_checkpoint('saves/autoencoder/epoch=48.ckpt')
     model.eval()
     dataset = CustomDataset('ram/mini_ru_test/no_label')
     for i, (data, _) in enumerate(dataset):

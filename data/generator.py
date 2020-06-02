@@ -17,6 +17,7 @@ parser.add_argument('-u', '--unlabeled', default=False, type=bool)
 parser.add_argument('-d', '--dict', default='10000-russian-words-cyrillic-only.txt', type=str)
 parser.add_argument('-r', '--regular', default=False, type=bool)
 parser.add_argument("-b", "--image_dir", type=str, default='datasets/bg_img')
+parser.add_argument("-m", "--mask", type=bool, default=False)
 args = parser.parse_args()
 
 font_list = os.listdir(args.font_folder)
@@ -83,23 +84,29 @@ def create_txt(text, character_spacing, fill, font, stroke_width, stroke_fill, f
         cx += piece_widths[i] + character_spacing
         i += 1
 
-    mask = Image.new('L', txt_img.size, 0)
-    mask_draw = ImageDraw.Draw(mask)
+    if args.mask:
+        mask = Image.new('L', txt_img.size, 0)
+        mask_draw = ImageDraw.Draw(mask)
 
-    cx = stroke_width
-    i = 0
-    for c in text:
-        mask_draw.text((cx, stroke_width), c, 255, font)
-        cx += piece_widths[i] + character_spacing
-        i += 1
-
-    #mask.save('%s/%d_mask.tiff' % ('datasets/test', rnd.randint(1, 5)))
+        cx = stroke_width
+        i = 0
+        for c in text:
+            mask_draw.text((cx, stroke_width), c, 255, font)
+            cx += piece_widths[i] + character_spacing
+            i += 1
     
-    if fit:
-        bbox = txt_img.getbbox()
-        return (txt_img.crop(bbox), mask.crop(bbox))
+    if args.mask:
+        if fit:
+            bbox = txt_img.getbbox()
+            return (txt_img.crop(bbox), mask.crop(bbox))
+        else:
+            return txt_img, mask
     else:
-        return txt_img, mask
+        if fit:
+            bbox = txt_img.getbbox()
+            return txt_img.crop(bbox), None
+        else:
+            return txt_img, None
 
 def np_img(pil_img):
     return np.array(pil_img)
@@ -158,46 +165,22 @@ def image_background(size): # from trdg.background_generator
 
     return pic.crop((x, y, x + width, y + height))
 
-"""
-seq = iaa.Sequential([
-    iaa.Sometimes(0.5, [
-        iaa.PerspectiveTransform(keep_size=False, cval=ia.ALL, mode=ia.ALL),
-        #iaa.PiecewiseAffine(scale=0.05),
-        #iaa.ElasticTransformation(alpha=(0, 0.25), sigma=(0, 0.05)),
-        iaa.Affine(scale={'x': (1.0, 1.1)}, rotate=(-10, 10), shear=(-15, 15), order=ia.ALL, cval=ia.ALL, mode=ia.ALL, fit_output=True)
-    ]),
-    iaa.OneOf([
-        iaa.GaussianBlur(sigma=(0, 2.0)),
-        iaa.MotionBlur(k=3),
-        #iaa.imgcorruptlike.GlassBlur(severity=1),
-        #iaa.imgcorruptlike.DefocusBlur(severity=1),
-        #iaa.imgcorruptlike.Pixelate(severity=1)
-    ]),
-    iaa.OneOf([
-        iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.01*255)),
-        #iaa.imgcorruptlike.ShotNoise(severity=1)
-    ]),
-    iaa.JpegCompression(compression=(0, 75)),
-    iaa.Crop(percent=0.01),
-])
-"""
-
-i = 0
+i = 384
 font_num = 0
 for font_name in font_list:
     
     if args.regular and not 'regular' in font_name.lower():
         continue
 
-    #if font_num == 5: break
-    #font_num += 1
-    #if font_num < 4: continue
+    if font_num == 1: break
+    font_num += 1
+    #if font_num < 2: continue
     
     savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
     os.makedirs(savedir, exist_ok=True)
 
-                   #len(os.listdir(savedir))
-    for _ in range(0, args.images):
+                   #
+    for _ in range(len(os.listdir(savedir)), args.images):
     
         font_size = rnd.randint(32, 72)
         font = ImageFont.truetype(os.path.join(args.font_folder, font_name), size=font_size)
@@ -219,13 +202,22 @@ for font_name in font_list:
 
         txt_background.paste(txt, txt_offset, txt_alpha)
 
-        txt_mask = Image.new('L', bg_size, 0)
-        txt_mask.paste(mask, txt_offset)
+        if args.mask:
+            txt_mask = Image.new('L', bg_size, 0)
+            txt_mask.paste(mask, txt_offset)
+            #txt_mask = txt_mask.resize((txt_mask.size[0] // 8, txt_mask.size[1] // 8))
+            txt_mask.save('%s/%d_mask.tiff' % (savedir, i))
 
         #txt_background = pil_img(seq(image=np_img(txt_background)))
-        
-        txt_mask.save('%s/%d_mask.tiff' % (savedir, i))
-        txt_background.save('%s/%d.tiff' % (savedir, i))
+        save_path = '%s/%d.tiff' % (savedir, i)
+        try:
+            txt_background.save(save_path)
+        except TypeError:
+            try:
+                os.remove(save_path)
+                i -= 1
+            except:
+                pass
 
         i += 1
 

@@ -8,18 +8,50 @@ from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import argparse
+import numpy as np
+import imgaug as ia
+import imgaug.augmenters as iaa
 
-device = torch.device('cpu')
+seq = iaa.Sequential([
+    iaa.Sometimes(0.5, [
+        iaa.PerspectiveTransform(keep_size=False, cval=ia.ALL, mode=ia.ALL),
+        #iaa.PiecewiseAffine(cval=ia.ALL, mode=ia.ALL),
+        #iaa.ElasticTransformation(alpha=(0, 0.25), sigma=(0, 0.05)),
+        iaa.Affine(scale={'x': (1.0, 1.1)}, rotate=(-10, 10), shear=(-15, 15), order=ia.ALL, cval=ia.ALL, mode=ia.ALL, fit_output=True)
+    ]),
+    iaa.OneOf([
+        iaa.GaussianBlur(sigma=(0, 2.0)),
+        iaa.MotionBlur(k=3),
+        #iaa.imgcorruptlike.GlassBlur(severity=1),
+        #iaa.imgcorruptlike.DefocusBlur(severity=1),
+        #iaa.imgcorruptlike.Pixelate(severity=1)
+    ]),
+    iaa.OneOf([
+        iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.01*255)),
+        #iaa.imgcorruptlike.ShotNoise(severity=1)
+    ]),
+    iaa.JpegCompression(compression=(0, 75)),
+    iaa.Crop(percent=0.01),
+    iaa.Resize({"height": 63, "width": "keep-aspect-ratio"}, interpolation=ia.ALL),
+    iaa.CropToFixedSize(63, 252),
+    iaa.PadToFixedSize(63, 63, pad_mode=ia.ALL, pad_cval=(0, 255))
+])
+
+def unnamed(image):
+    image = np.array(image)
+    return seq(image=image)
+
 hparams = argparse.Namespace()
 hparams.batch_size = 1
 
-model = Net.load_from_checkpoint('mnist/saves/epoch=9_v4.ckpt').to(device)
+model = Net.load_from_checkpoint('saves/main/epoch=61.ckpt')
 model.eval()
 
 out_dir = 'mnist/ram/bad'
 
 transform = transforms.Compose([
     transforms.Grayscale(),
+    #transforms.Lambda(unnamed),
     transforms.Resize(63),
     #transforms.RandomCrop(63),
     #transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
@@ -27,13 +59,16 @@ transform = transforms.Compose([
 ])
 
 def test():
+    device = torch.device('cuda')
+    model = model.to(device)
+    
 
     test_loader = DataLoader(
-        datasets.ImageFolder('mnist/ram/mini_ru_test', transform),
+        datasets.ImageFolder('ram/mini_ru_test', transform),
         batch_size=hparams.batch_size, shuffle=False, num_workers=6, pin_memory=True
     )
     
-    """
+    
     test_loss = 0
     correct = 0
     classified = 0
@@ -65,7 +100,7 @@ def test():
             if selection.size(0) > 0:
                 utils.save_image(selection, '%s/%d.tiff' % (out_dir, i), normalize=True)
                 i += 1
-    #"""
+    """
 
 def classify(image):
     #crops = process_image(image)
@@ -81,12 +116,15 @@ def classify(image):
     with torch.no_grad():
         output = model.classifier(inputs)
         #utils.save_image(output, 'mnist/ram/eval.tiff', normalize=True)
-        #output = model(inputs).tolist()
+        output = model(inputs).tolist()
         #output = softmax(model(inputs).sum(dim=0), dim=0).tolist()
-        print(output.size())
-        for i in range(output.size(1)):
-            utils.save_image(output[0][i], 'mnist/ram/layer_%d.tiff' % i, normalize=True)
+        #print(output.size())
+        #for i in range(output.size(1)):
+        #    utils.save_image(output[0][i], 'mnist/ram/layer_%d.tiff' % i, normalize=True)
+        return output
 
 if __name__ == '__main__':
+    device = torch.device('cpu')
+    model = model.to(device)
     print(classify(Image.open(sys.argv[1])))
     #test()

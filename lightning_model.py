@@ -10,17 +10,19 @@ class Net(LightningModule):
 
         self.hparams = hparams
 
-        ndf = 64
+        ndf = 16
         n_classes = 5
 
         self.classifier = nn.Sequential(
-            nn.Conv2d(    1,   ndf, 3, 2), nn.ReLU(True), nn.BatchNorm2d(ndf),
-            nn.Conv2d(  ndf, 2*ndf, 3, 2), nn.ReLU(True), nn.BatchNorm2d(2*ndf),
-            nn.Conv2d(2*ndf, 4*ndf, 3, 2), nn.ReLU(True), nn.BatchNorm2d(4*ndf),
-            nn.AdaptiveMaxPool2d(7)
+            nn.Conv2d(    1,    ndf, 3, 2), nn.ReLU6(True), nn.BatchNorm2d(  ndf),
+            nn.Conv2d(  ndf,  2*ndf, 3, 2), nn.ReLU6(True), nn.BatchNorm2d(2*ndf),
+            nn.Conv2d(2*ndf,  4*ndf, 3, 2), nn.ReLU6(True), nn.BatchNorm2d(4*ndf),
+            nn.Conv2d(4*ndf,  8*ndf, 3, 2), nn.ReLU6(True), nn.BatchNorm2d(8*ndf),
+            nn.Conv2d(8*ndf, 16*ndf, 3, 2), nn.ReLU6(True), nn.BatchNorm2d(16*ndf),
+            nn.AdaptiveMaxPool2d(1)
         )
         self.fc = nn.Sequential(
-            nn.Linear(7*7*4*ndf, n_classes)
+            nn.Linear(16*ndf, n_classes)
         )
 
     def forward(self, x):
@@ -55,7 +57,7 @@ class Net(LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adadelta(self.parameters(), lr=self.hparams.learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=2, verbose=True)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, verbose=True)
         return [ optimizer ], [ scheduler ]
 
 if __name__ == '__main__':
