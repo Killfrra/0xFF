@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<title>W3.CSS Template</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="w3.css">
+
+<style>
+    html, body, .high {
+        height: 100%;
+    }
+    .upload-card {
+        width: 100%;
+        height: 100%;
+        max-width: 600px;
+        max-height: 337px;
+    }
+    .no-focus:focus {
+        outline: none;
+    }
+    .strong {
+        font-weight: bolder;
+    }
+</style>
+
+<body class="w3-light-grey">
+
+<!-- Page Container -->
+<div class="high w3-row">
+    <div class="high w3-display-container w3-container w3-twothird">
+        <label for="upload_field" class="upload-card w3-display-container w3-card w3-hover-shadow w3-display-middle">
+            <input id="upload_field" class="no-focus w3-input w3-display-bottommiddle" type="file">
+        </label>
+    </div>
+    <div class="high w3-card-2 w3-third w3-display-container">
+        <div class="w3-center w3-container w3-teal">
+            <p>Font Finder</p>
+        </div>
+        <div class="w3-container w3-padding-large">
+            <p>Вы всего в нескольких шагах от того, чтобы распознать шрифт на картинке.</p>
+            <ul class="w3-ul">
+                <li class="strong">Шаг 1: Выберите изображение</li>
+                <li>Шаг 2: Выделите на нём текст</li>
+                <li>Шаг 3: Просмотрите варианты</li>
+            </ul>
+            <button class="w3-button w3-padding-16 w3-margin-bottom w3-display-bottommiddle w3-teal">Recognize</button>
+        </div>
+    </div>
+</div>
+</body>
+</html>

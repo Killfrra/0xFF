@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="utf-8">
+    <title>0xFF</title>
+    <link href="static/style.css" rel="stylesheet">
+    <link href="static/cropper.min.css" rel="stylesheet">
+  </head>
+  <body>
+    <header></header>
+    <div class="container">
+      <div class="image-editor">
+        <div id="crop-page"><img id="image"></img></div>
+        <form id="pick-page" class="box center-vert" method="post" action="" enctype="multipart/form-data">
+          <div class="center-vert">
+            <input type="file" id="upload" value="Choose a file" accept="image/*"></input>
+            <input type="submit"></input>
+          </div>
+        </form>
+      </div><div class="side-panel">
+        <div class="logo"><h3>FontFinder</h3></div>
+        <div class="instructions">
+          <p>Вы всего в нескольких шагах от того, чтобы распознать шрифт на картинке.</p>
+          <p>Для начала выберите картинку воспользовавшись формой слева.</p>
+          <p>Используя этот сайт, вы соглашаетесь с нашей политикой, ознакомиться с которой можно <a href="#">тут</a></p>
+        </div>
+        <div class="instructions" style="display: none">
+          <p>В редакторе укажите прямоугольник, в котором находится текст. Постарайтесь как можно точнее захватить лишь одну строку или слово, написанные одним шрифом, но с как можно большим количеством букв.</p>
+          <p>Нажмите <button id="recognize">Распознать</button></p>
+        </div>
+        <div class="instructions" style="display: none">
+          <p>Томительное ожидание...</p>
+        </div>
+        <div class="instructions" style="display: none">
+          <p>Возможно, на картинке один из этих шрифтов:</p>
+          <table></table>
+        </div>
+      </div>
+    </div>
+    <footer></footer>
+    <script src="static/cropper.min.js"></script>
+    <script src="static/main.js"></script>
+  </body>
+</html>
