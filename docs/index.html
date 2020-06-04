@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
-<title>W3.CSS Template</title>
+<title>0xFF</title>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="static/w3.css">
 <link rel="stylesheet" href="static/cropper.min.css" >
+<link rel="stylesheet" href="static/fontawesome-solid.min.css">
 <link rel="stylesheet" href="static/fontawesome-regular.min.css">
 
 <style>
@@ -50,24 +51,27 @@
 <body class="w3-light-grey">
 
 <!-- Page Container -->
-<div class="high w3-row">
+<div class="high w3-row w3-display-container">
     <div class="high w3-twothird w3-padding-large w3-display-container">
-        <div id="upload-view" class="high w3-block w3-display-container">
+        <div class="high w3-block w3-display-container">
             <label for="upload-field" class="upload-card w3-card-2 w3-display-middle w3-center w3-display-container w3-hover-shadow">
-                <div class="w3-block w3-display-middle">Выберите файл или перетащите его сюда</div>
-                <input id="upload-field" class="no-focus w3-input w3-display-bottommiddle" type="file">
+                <div class="w3-block w3-display-middle">
+                    <div class="fas" style="font-size: 100px; color: #ccc;"></div>
+                    <p class="w3-text-dark-grey">Выберите файл или перетащите его сюда</p>
+                </div>
+                <input id="upload-field"class="w3-light-grey no-focus w3-input w3-display-bottommiddle" type="file" accept="image/*">
             </label>
         </div>
-        <div id="cropper-view" class="high w3-block w3-display-topleft w3-white">
+        <div id="cropper-container" class="high w3-block w3-display-topleft w3-white">
             <image id="image-to-crop" class="high w3-block"></image>
         </div>
-        <div id="notification" class="w3-panel w3-container w3-block w3-display-bottomleft" style="animation-direction: reverse;">
-            <div class="w3-container w3-sand w3-leftbar w3-cell-row">
-                <div class="w3-cell" style="width: 90%;">
-                    <p>Используя наш сайт, вы соглашаетесь с политикой, ознакомиться с которой можно <a href="#">тут</a></p>
-                </div><div class="w3-cell w3-right-align" style="width: 10%;">
-                    <span class="strong clickable" style="color: #ccc; user-select: none">&times;</span>
-                </div>
+    </div>
+    <div id="notification" class="w3-panel w3-container w3-twothird w3-display-bottomleft" style="animation-direction: reverse;">
+        <div class="w3-container w3-sand w3-leftbar w3-cell-row">
+            <div class="w3-cell" style="width: 90%;">
+                <p>Используя наш сайт, вы соглашаетесь с политикой, ознакомиться с которой можно <a href="#">тут</a></p>
+            </div><div class="w3-cell w3-right-align" style="width: 10%;">
+                <span class="strong clickable" style="color: #ccc; user-select: none">&times;</span>
             </div>
         </div>
     </div>
@@ -84,6 +88,7 @@
             </ul>
             <div id="instructions">
                 <p><span class="far w3-padding"></span>Постарайтесь как можно точнее захватить лишь одну строку или слово, написанные одним шрифом, но с как можно большим количеством букв.</p>
+                <p><span class="fas w3-padding"></span>Двойной клик за пределами выделения переключает режимы между обрезкой и перемещением.</p>
             </div>
             <ul id="results-container" class="w3-ul w3-display-container">
                 <p>Возможно, на картинке один из этих шрифтов:</p>
@@ -95,7 +100,7 @@
                 <p>Нажмите, чтобы скачать</p>
                 <div id="spinner" class="high w3-block w3-display-topleft w3-display-container">
                     <div class="high w3-block w3-border w3-light-grey"></div>
-                    <span class="far w3-display-middle w3-spin"></span>
+                    <span class="fas w3-display-middle w3-spin"></span>
                 </div>
             </ul>
             <div id="buttons" class="w3-block w3-display-bottommiddle w3-padding-large">

@@ -97,7 +97,7 @@ upload_field.onchange = function () {
     fsm.switch(states.crop_screen)
 }
 
-var cropper_container = document.getElementById('cropper-view')
+var cropper_container = document.getElementById('cropper-container')
 var instructions = document.getElementById('instructions')
 var results_container = document.getElementById('results-container')
 var results = results_container.getElementsByClassName('result')
