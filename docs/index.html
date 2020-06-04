@@ -24,7 +24,7 @@
     .clickable {
         cursor:pointer
     }
-    .strong, .step.current, .clickable:hover {
+    .clickable:hover {
         font-weight: bold;
     }
     .strong.clickable:hover {
@@ -46,14 +46,93 @@
         height: 38.5px; /* 15*1.5+2*8 */
         padding: 0;
     }
+    .header {
+        position: fixed;
+        bottom: 0;
+    }
+    html {
+        scroll-behavior: smooth;
+    }
+    @media (min-width:601px){
+        .high-on-desktop {
+            height: 100%;
+        }
+        .header {
+            position: static;
+        }
+        .hidden-on-desktop {
+            display: none;
+        }
+    }
+
+    #cropper-container,
+    #upload-container,
+    #results-container,
+    #instructions-crop,
+    #error-container,
+    #comment-container,
+    #spinner,
+    #solution
+    {
+        display: none;
+    }
+
+    body[state="upload"] #upload-container,
+    body[state="crop"] #cropper-container,
+    body[state="crop"] #instructions-crop,
+    body[state="loading"] #cropper-container,
+    body[state="loading"] #spinner,
+    body[state="results"] #results-container,
+    body[state="results"] #comment-container,
+    body[error] #error-container,
+    body[error="comment"] #comment-container,
+    body[error="comment"] #solution
+    {
+        display: block;
+    }
+
+    body[state="upload"] .step-0,
+    body[state="crop"] .step-1,
+    body[state="loading"] .step-2,
+    body[state="results"] .step-2 {
+        font-weight: bold;
+    }
+
+    body[state="loading"] .hide-when-spinner {
+        visibility: hidden;
+    }
+
+    a[href="#instructions"],
+    a[href="#error-container"] {
+        display: none;
+    }
+
+    body:not([error]) a[href="#instructions"],
+    body[error] a[href="#error-container"]{
+        display: inline-block;
+    }
+
+    body[state="results"] #cropper-and-upload-container {
+        display: none;
+    }
+
+    #preview-container {
+        width: 100%;
+        height: 77px;
+        overflow: hidden;
+    }
+
 </style>
 
-<body class="w3-light-grey">
+<body class="w3-light-grey" state="results">
 
 <!-- Page Container -->
 <div class="high w3-row w3-display-container">
-    <div class="high w3-twothird w3-padding-large w3-display-container">
-        <div class="high w3-block w3-display-container">
+    <div id="cropper-and-upload-container" class="high w3-twothird w3-padding-large w3-display-container">
+        <div id="cropper-container" class="high w3-block w3-display-topleft">
+            <image id="image-to-crop" class="high w3-block" style="max-width: 100%;"></image>
+        </div>
+        <div id="upload-container" class="high w3-block w3-display-container">
             <label for="upload-field" class="upload-card w3-card-2 w3-display-middle w3-center w3-display-container w3-hover-shadow">
                 <div class="w3-block w3-display-middle">
                     <div class="fas" style="font-size: 100px; color: #ccc;"></div>
@@ -62,65 +141,73 @@
                 <input id="upload-field"class="w3-light-grey no-focus w3-input w3-display-bottommiddle" type="file" accept="image/*">
             </label>
         </div>
-        <div id="cropper-container" class="high w3-block w3-display-topleft w3-white">
-            <image id="image-to-crop" class="high w3-block"></image>
+    </div>
+    <ul id="results-container" class="w3-container high-on-desktop w3-twothird w3-ul" style="min-height: 100%; overflow-y: auto">
+        <div style="height: 77px;"></div>
+        <div id="preview-container" class="w3-display-topleft" style="position: fixed; margin-left: 33px;">
+            <div id="preview" style="overflow: hidden;"></div>
+        </div>
+        <p>Возможно, на картинке один из шрифтов ниже.<br>Ну как? Мы угадали? <span class="far"></span> Обязательно <a href="#comment-container">оставьте комментарий</a></p>
+        <div style="overflow-x: auto">
+            <table id="results" class="w3-table-all w3-hoverable" style="width: 100%;"><tbody style="width: 100%;">
+                <tr><th>Предпросмотр</th><th>Название</th><th>Ссылки</th></tr>
+            </tbody></table>
+        </div>
+    </ul>
+    <div class="high-on-desktop w3-card-2 w3-third w3-display-container" style="overflow-y: auto;">
+        <div class="header w3-block w3-center w3-teal" style="z-index: 1; height: 54.5px;">
+            <button id="prev-btn" onclick="fsm.prev_step()" class="w3-button w3-padding-16" style="display: inline-block; width: 33%;">
+                ← Назад
+            </button><a href="#error-container" class="w3-button high w3-display-container" style="width: 33%;">
+                <div class="fas w3-display-middle" style="font-size: 30px;"></div>
+            </a><a href="#instructions" class="w3-button w3-padding-16 w3-display-container" style="width: 33%;">
+                <div class="hide-when-spinner">Инструкции</div><div id="spinner" class="w3-display-middle" style="width:100%; height: 100%;"><div class="fas w3-spin" style="font-size: 30px;"></div></div>
+            </a><button id="next-btn" onclick="fsm.next_step()" class="w3-button w3-padding-16" style="display: inline-block; width: 33%;">
+                Далее →
+            </button>
+        </div>
+        <div id="instructions" class="w3-container w3-padding-large">
+            <p>Вы всего в нескольких шагах от того, чтобы распознать шрифт на картинке:</p>
+            <ul class="w3-ul">
+                <li><button class="step step-0" onclick="fsm.upload_state()" >Шаг 1: Выберите изображение</button></li>
+                <li><button class="step step-1" onclick="fsm.crop_state()"   >Шаг 2: Выделите на нём текст</button></li>
+                <li><button class="step step-2" onclick="fsm.loading_state()">Шаг 3: Просмотрите варианты</button></li>
+            </ul>
+            <div id="instructions-crop">
+                <p><span class="far w3-padding"></span>Постарайтесь как можно точнее захватить лишь одну строку или слово, написанные одним шрифом, но с как можно большим количеством букв.</p>
+                <p><span class="fas w3-padding"></span>Двойной клик за пределами выделения переключает режимы между обрезкой и перемещением.</p>
+            </div>
+            
+            <div id="error-container">
+                <p>Была ошибка, вот о чём молчит наука...</p>
+                <div id="error" class="w3-panel w3-pale-red w3-leftbar w3-border w3-border-red notranslate w3-code"></div>
+                <div id="solution">
+                    <p>Пожалуйста, оставьте комментарий и расскажите, как это произошло</p>
+                    <p>Потом попробуйте вернуться на шаг назад или обновить страницу</p>
+                </div>
+            </div>
+            <div id="comment-container">
+                <br>
+                <textarea class="w3-input w3-border" style="resize:vertical" placeholder="Будем рады любому отклику"></textarea>
+                <button class="w3-button w3-teal w3-block" onclick="submit_comment()">Отправить</button>
+            </div>
+            <div class="hidden-on-desktop" style="height: 54.5px;"><!-- 15 * 1.5 + 16 * 2 --></div>
         </div>
     </div>
-    <div id="notification" class="w3-panel w3-container w3-twothird w3-display-bottomleft" style="animation-direction: reverse;">
+    <div id="notification" class="w3-panel w3-container w3-twothird w3-display-bottomleft" style="/*position: fixed;*/">
         <div class="w3-container w3-sand w3-leftbar w3-cell-row">
             <div class="w3-cell" style="width: 90%;">
                 <p>Используя наш сайт, вы соглашаетесь с политикой, ознакомиться с которой можно <a href="#">тут</a></p>
             </div><div class="w3-cell w3-right-align" style="width: 10%;">
-                <span class="strong clickable" style="color: #ccc; user-select: none">&times;</span>
+                <span class="strong clickable" style="color: #ccc; user-select: none" onclick="notification.style.display = 'none'">&times;</span>
             </div>
         </div>
-    </div>
-    <div class="high w3-card-2 w3-third w3-display-container" style="overflow-y: auto;">
-        <div class="w3-center w3-container w3-teal">
-            <p>Font Finder</p>
-        </div>
-        <div class="w3-container w3-padding-large">
-            <p>Вы всего в нескольких шагах от того, чтобы распознать шрифт на картинке:</p>
-            <ul class="w3-ul">
-                <li><button class="current step">Шаг 1: Выберите изображение</button></li>
-                <li><button class="step">Шаг 2: Выделите на нём текст</button></li>
-                <li><button class="step">Шаг 3: Просмотрите варианты</button></li>
-            </ul>
-            <div id="instructions">
-                <p><span class="far w3-padding"></span>Постарайтесь как можно точнее захватить лишь одну строку или слово, написанные одним шрифом, но с как можно большим количеством букв.</p>
-                <p><span class="fas w3-padding"></span>Двойной клик за пределами выделения переключает режимы между обрезкой и перемещением.</p>
-            </div>
-            <ul id="results-container" class="w3-ul w3-display-container">
-                <p>Возможно, на картинке один из этих шрифтов:</p>
-                <li><a class="result" target="_blank"><img></img></a></li>
-                <li><a class="result" target="_blank"><img></img></a></li>
-                <li><a class="result" target="_blank"><img></img></a></li>
-                <li><a class="result" target="_blank"><img></img></a></li>
-                <li><a class="result" target="_blank"><img></img></a></li>
-                <p>Нажмите, чтобы скачать</p>
-                <div id="spinner" class="high w3-block w3-display-topleft w3-display-container">
-                    <div class="high w3-block w3-border w3-light-grey"></div>
-                    <span class="fas w3-display-middle w3-spin"></span>
-                </div>
-            </ul>
-            <div id="buttons" class="w3-block w3-display-bottommiddle w3-padding-large">
-                <button id="prev-btn" class="w3-button w3-block w3-teal w3-margin-top">← Назад</button>
-                <button id="next-btn" class="w3-button w3-block w3-teal w3-margin-top">Далее →</button>
-            </div>
-            <div id="error-container">
-                <p>Была ошибка, вот о чём молчит наука...</p>
-                <div class="w3-panel w3-pale-red w3-leftbar w3-border w3-border-red notranslate"></div>
-                <p>Пожалуйста, оставте комментарий и расскажите, как это произошло</p>
-                <p>Потом попробуйте вернуться на шаг назад или обновить страницу</p>
-            </div>
-            <div id="comment">
-                <textarea class="w3-input w3-border" style="resize:vertical" placeholder="Будем рады любому отклику"></textarea>
-                <button class="w3-button w3-teal w3-block">Отправить</button>
-            </div>
-        </div>
+        <div class="hidden-on-desktop" style="height: 54.5px;"><!-- 15 * 1.5 + 16 * 2 --></div>
     </div>
 </div>
+
 <script src="static/cropper.min.js"></script>
 <script src="main.js"></script>
+
 </body>
 </html>

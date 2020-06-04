@@ -32,225 +32,228 @@ pseudoXMLHttpRequest.prototype.send = function(data){
     }
 }
 
-function empty_func() { }
-var fsm = {
-    current: { onstart: empty_func, onend: empty_func },
-    switch: function (state) {
-        this.current.onend()
-        error_container.style.display = 'none' //TODO: поместить, куда следует
-        state.onstart()
-        this.current = state
-        this.onafterswitch()
-    },
-    onafterswitch: empty_func
+function css_state(state){
+    document.body.setAttribute('state', state)
+    document.body.removeAttribute('error')
 }
 
-var buttons = document.getElementById('buttons').children
-var usedButtons = 0;
-function button(innerText, disabled) {
-    disabled = disabled || false
-    var button = buttons[usedButtons++]
-    button.innerText = innerText
-    button.disabled = disabled
-    button.style.display = 'block'
-    return button
-}
-function disable_unused_buttons() {
-    for (var i = usedButtons; i < buttons.length; i++)
-        buttons[i].style.display = 'none'
-    usedButtons = 0
-}
-
+var next_btn = document.getElementById('next-btn')
+var prev_btn = document.getElementById('prev-btn')
 var steps = document.getElementsByClassName('step')
-
-for (var s of steps)
-    s.disabled = true
-
-var current_step = 0
-function step(num) {
-    steps[current_step].classList.remove('current')
-    steps[current_step].disabled = false
-    steps[num].classList.add('current')
-    steps[num].disabled = true
-    current_step = num
-}
-
-var image = document.getElementById('image-to-crop')
-var cropper_inited = false
-var cropper = new Cropper(image, {
-    viewMode: 1,
-    guides: false,
-    center: false,
-    background: false,
-    //minCropBoxWidth: 64,
-    //minCropBoxHeight: 64
-})
-
 var upload_field = document.getElementById('upload-field')
-function update_cropper() {
-    var url = URL.createObjectURL(upload_field.files[0])
-    cropper.replace(url)
+var image = document.getElementById('image-to-crop')
+var preview_container = document.getElementById('preview-container')
+var preview = document.getElementById('preview')
+var results_container = document.getElementById('results-container')
+var results = results_container.getElementsByTagName('tbody')[0]
+var error_container = document.getElementById('error-container')
+var error = document.getElementById('error')
+var comment_container = document.getElementById('comment-container') // not used
+var comment_textarea = comment_container.getElementsByTagName('textarea')[0]
+var comment_send_btn = comment_container.getElementsByTagName('button')[0]
+
+var cropper, image_url, cropper_inited = false;
+function update_cropper(){
+    image_url = URL.createObjectURL(upload_field.files[0])    
+    if(!cropper){
+        image.src = image_url
+        cropper = new Cropper(image, {
+            viewMode: 1,
+            preview: preview,
+            guides: false,
+            center: false,
+            background: false,
+            autoCropArea: 0.25,
+            //minCropBoxWidth: 64,
+            //minCropBoxHeight: 64
+        })
+    } else
+        cropper.replace(url)
     cropper_inited = true
 }
-upload_field.onchange = function () {
+
+upload_field.onchange = function(){
     update_cropper()
-    fsm.switch(states.crop_screen)
+    fsm.next_step()
 }
 
-var cropper_container = document.getElementById('cropper-container')
-var instructions = document.getElementById('instructions')
-var results_container = document.getElementById('results-container')
-var results = results_container.getElementsByClassName('result')
-var spinner = document.getElementById('spinner')
-var error_container = document.getElementById('error-container')
-var comment_container = document.getElementById('comment')
-var comment_send_btn = comment_container.getElementsByTagName('button')[0]
-var comment_textarea = comment_container.getElementsByTagName('textarea')[0]
-var notification = document.getElementById('notification')
-var notification_close_btn = notification.getElementsByTagName('span')[0]
-notification_close_btn.onclick = function(){
-    notification.style.display = 'none'
+function empty_func(){}
+
+var fsm = {
+    step: 0,
+    state: { start: empty_func, end: empty_func },
+    next_step: function(){
+        var step = Math.min(this.steps.length - 1, this.step + 1)
+        var state = this.steps[step]
+        this.switch(step, state, state.name)
+    },
+    prev_step: function(){
+        var step = Math.max(0, this.step - 1)
+        var state = this.steps[step]
+        this.switch(step, state, state.name)
+    },
+    switch: function(step, state, name){
+        this.step = step
+        this.state.end()
+        this.state = state
+        css_state(name)
+        state.start()
+    }
 }
 
-function disable_all() {
-    cropper_container.style.display = 'none'
-    instructions.style.display = 'none'
-    results_container.style.display = 'none'
-    comment_container.style.display = 'none'
-    error_container.style.display = 'none'
+fsm.upload_state = function upload() {
+    this.switch(0, this.upload_state, 'upload')
+}
+fsm.upload_state.start = function () {
+    var can_continue = upload_field.files.length > 0
+    prev_btn.disabled = true
+    next_btn.disabled = !can_continue
+    steps[0].disabled = true
+    steps[1].disabled = !can_continue
+}
+fsm.upload_state.end = function(){
+    steps[0].disabled = false
+    next_btn.disabled = false
+    prev_btn.disabled = false
 }
 
-comment_send_btn.onclick = function () {
-    if (!error_text && !comment_textarea)
+fsm.crop_state = function crop() {
+    this.switch(1, this.crop_state, 'crop')
+}
+fsm.crop_state.start = function () {
+    if (!cropper_inited)
+        update_cropper()
+    else
+        cropper.enable()
+    steps[1].disabled = true
+    steps[2].disabled = false
+}
+fsm.crop_state.end = function(){
+    cropper.disable()
+    steps[1].disabled = false
+}
+
+fsm.loading_state = function loading() {
+    this.switch(2, this.loading_state, 'loading')
+}
+fsm.loading_state.start = function(){
+    
+    var data = new FormData()
+    var file = upload_field.files[0]
+    data.append('image', file, file.name)
+    var box = cropper.getData(true)
+    for (var key of ['x', 'y', 'width', 'height'])
+        data.append(key, box[key].toString())
+
+    var xhr = new pseudoXMLHttpRequest()
+    xhr.onload = function (e) {
+        // пришли результаты, но до этого пользователь струсил и нажал "назад"
+        if(fsm.state !== fsm.loading_state)
+            return // результат же ему больше не нужен, правда?
+
+        var response = []
+        try {
+            response = JSON.parse(xhr.responseText)
+            if(response.error){
+                show_error(response.error)
+                return
+            }
+        } catch (err) {
+            show_error(err)
+            return
+        }
+        while(results.childElementCount > 1)
+            results.children[results.childElementCount - 1].remove()
+        
+        var table_src = ''
+        for (var i = 0; i < response.length; i++) {
+            var [, font, link] = response[i]
+            table_src += '<tr>'
+            table_src += '<td><img src="previews/' + font + '.jpg" alt="' + font + '"></img></td>'
+            table_src += '<td>' + font + '</td><td><a class="fas" href="' + link + '" target="_blank"></a></td>'
+            table_src += '</tr>'
+        }
+        results.innerHTML += table_src
+
+        fsm.results_state()
+
+    }
+    xhr.onerror = function () {
+        show_error('Произошла ошибка при отправке данных на сервер')
+    }
+    xhr.open('POST', '/upload')
+    xhr.send(data)
+}
+fsm.loading_state.end = function(){
+    steps[1].disabled = false
+}
+
+fsm.results_state = function results() {
+    this.switch(2, this.results_state, 'results')
+}
+fsm.results_state.start = function () {
+    //function render_preview(){
+        cropper.disabled = false
+        preview.cropperPreview.width = preview_container.offsetWidth
+        preview.cropperPreview.height = preview_container.offsetHeight
+        cropper.preview()
+        cropper.disabled = true
+    //}
+    results_container.scrollIntoView({
+        behavior: 'smooth'
+    })
+    next_btn.disabled = true
+    prev_btn.disabled = false
+    steps[2].disabled = true
+}
+fsm.results_state.end = function(){
+    steps[2].disabled = false
+    next_btn.disabled = false
+}
+
+var error_text = ''
+function show_error(e, comment){
+    if(comment)
+        error_text = e
+    document.body.setAttribute('error', comment ? 'comment' : 'true')
+    error.innerText = e
+    error_container.scrollIntoView({
+        behavior: 'smooth'
+    })
+}
+
+window.onerror = function (event, source, lineno, colno, error) {
+    error_text = source + ':' + lineno + ':' + colno + ': ' + event
+    if (error && error.stack)
+        error_text += '\n' + error.stack
+    show_error(error_text, true)
+}
+
+function submit_comment(){
+    var comment = comment_textarea.value
+    if (!error_text && !comment)
         return;
 
-    var data = {
-        'comment': comment_textarea.value,
-        'error': error_text
-    }
+    var data = {}
+    if(error_text)
+        data.error = error_text
+    if(comment)
+        data.comment = comment
+    
     var xhr = new pseudoXMLHttpRequest()
     xhr.open('POST', '/comment')
     xhr.send(data)
-    error_container.style.display = 'none'
+    
+    document.body.removeAttribute('error')
     comment_textarea.placeholder = 'Спасибо за ваш отзыв!'
     comment_textarea.value = ''
     //error_text = ''
     comment_send_btn.innerText = 'Отправить ещё'
 }
 
-var states = {
-    start_screen: {
-        onstart: function () {
-            step(0)
-            var can_continue = upload_field.files.length > 0
-            var btn = button('Далее →', !can_continue)
-            steps[1].disabled = !can_continue
-            btn.onclick = upload_field.onchange
-        },
-        onend: empty_func
-    },
-    crop_screen: {
-        onstart: function () {
-            step(1)
-            if (!cropper_inited)
-                update_cropper()
-            cropper.enable()
-            cropper_container.style.display = 'block'
-            instructions.style.display = 'block'
-            var prev_btn = button('← Назад')
-            prev_btn.onclick = () => fsm.switch(states.start_screen)
-            var next_btn = button('Распознать →')
-            next_btn.onclick = () => fsm.switch(states.loading_screen)
-            steps[2].disabled = false
-        },
-        onend: function () {
-            cropper_container.style.display = 'none'
-            instructions.style.display = 'none'
-        }
-    },
-    loading_screen: {
-        onstart: function () {
-            step(2)
-            cropper.disable()
-            cropper_container.style.display = 'block'
-            results_container.style.display = 'block'
-            spinner.style.display = 'block'
-            var btn = button('Отменить')
-            btn.onclick = () => fsm.switch(states.crop_screen)
+fsm.steps = [ fsm.upload_state, fsm.crop_state, fsm.loading_state ]
 
-            // upload block
+for (let step of steps)
+    step.disabled = true
 
-            var data = new FormData()
-            var file = upload_field.files[0]
-            data.append('image', file, file.name)
-            var box = cropper.getData(true)
-            for (var key of ['x', 'y', 'width', 'height'])
-                data.append(key, box[key].toString())
-
-            var xhr = new pseudoXMLHttpRequest()
-            xhr.onload = function (e) {
-                // пришли результаты, но до этого пользователь нажал "отменить"
-                if(fsm.current !== states.loading_screen)
-                    return // результат же ему больше не нужен, правда?
-
-                var response = []
-                try {
-                    response = JSON.parse(xhr.responseText)
-                    if(response.error)
-                        throw response.error
-                } catch (err) {
-                    results_container.style.display = 'none'
-                    show_error(err)
-                    return
-                }
-                for (var i = 0; i < results.length && i < response.length; i++) {
-                    var img = results[i].children[0]
-                    var [, font, link] = response[i]
-                    img.src = 'previews/' + font + '.jpg'
-                    img.alt = font
-                    results[i].href = link
-                }
-
-                spinner.style.display = 'none'
-                comment_textarea.placeholder = 'Ну как? Мы угадали? :)\nНапишите отзыв о нашей работе'
-                comment_container.style.display = 'block'
-            }
-            xhr.onerror = function () {
-                results_container.style.display = 'none'
-                show_error('Произошла ошибка при отправке данных на сервер')
-            }
-            xhr.open('POST', '/upload')
-            xhr.send(data)
-        },
-        onend: function () {
-            cropper_container.style.display = 'none'
-            results_container.style.display = 'none'
-            comment_container.style.display = 'none'
-        }
-    }
-}
-
-var error_text = ''
-function show_error(e) {
-    error_text = e.toString()
-    error_container.children[1].innerText = error_text
-    error_container.style.display = 'block'
-    comment_send_btn.innerText = 'Отправить'
-    comment_textarea.placeholder = 'Будем рады любому отклику'
-    comment_container.style.display = 'block'
-}
-window.onerror = function (event, source, lineno, colno, error) {
-    error_text = source + ':' + lineno + ':' + colno + ': ' + event
-    if (error && error.stack)
-        error_text += '\n' + error.stack
-    show_error(error_text)
-}
-
-disable_all()
-
-steps[0].onclick = () => fsm.switch(states.start_screen)
-steps[1].onclick = () => fsm.switch(states.crop_screen)
-steps[2].onclick = () => fsm.switch(states.loading_screen)
-
-fsm.onafterswitch = disable_unused_buttons
-fsm.switch(states.start_screen)
+fsm.upload_state()
