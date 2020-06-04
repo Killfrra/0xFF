@@ -40,7 +40,9 @@ function css_state(state){
 var next_btn = document.getElementById('next-btn')
 var prev_btn = document.getElementById('prev-btn')
 var steps = document.getElementsByClassName('step')
+var upload_container = document.getElementById('upload-container')
 var upload_field = document.getElementById('upload-field')
+var upload_droparea = document.getElementById('upload-droparea')
 var image = document.getElementById('image-to-crop')
 var preview_container = document.getElementById('preview-container')
 var preview = document.getElementById('preview')
@@ -52,9 +54,9 @@ var comment_container = document.getElementById('comment-container') // not used
 var comment_textarea = comment_container.getElementsByTagName('textarea')[0]
 var comment_send_btn = comment_container.getElementsByTagName('button')[0]
 
-var cropper, image_url, cropper_inited = false;
+var file, cropper, image_url, cropper_inited = false;
 function update_cropper(){
-    image_url = URL.createObjectURL(upload_field.files[0])    
+    image_url = URL.createObjectURL(file)    
     if(!cropper){
         image.src = image_url
         cropper = new Cropper(image, {
@@ -67,12 +69,30 @@ function update_cropper(){
             //minCropBoxWidth: 64,
             //minCropBoxHeight: 64
         })
-    } else
-        cropper.replace(url)
+    } else {
+        cropper.enable()
+        cropper.replace(image_url)
+    }
     cropper_inited = true
 }
 
+function preventDefault(e){
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+['dragover', 'dragenter', 'dragleave', 'drop'].forEach(function(e) {
+    upload_container.addEventListener(e, preventDefault, false)
+})
+
+upload_container.addEventListener('drop', function(e){
+    file = e.dataTransfer.files[0]
+    update_cropper()
+    fsm.next_step()
+}, false)
+
 upload_field.onchange = function(){
+    file = upload_field.files[0]
     update_cropper()
     fsm.next_step()
 }
@@ -121,9 +141,10 @@ fsm.crop_state = function crop() {
     this.switch(1, this.crop_state, 'crop')
 }
 fsm.crop_state.start = function () {
-    if (!cropper_inited)
+    if (!cropper_inited){
+        file = upload_field.files[0]
         update_cropper()
-    else
+    } else
         cropper.enable()
     steps[1].disabled = true
     steps[2].disabled = false
@@ -139,7 +160,6 @@ fsm.loading_state = function loading() {
 fsm.loading_state.start = function(){
     
     var data = new FormData()
-    var file = upload_field.files[0]
     data.append('image', file, file.name)
     var box = cropper.getData(true)
     for (var key of ['x', 'y', 'width', 'height'])

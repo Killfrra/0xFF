@@ -133,7 +133,7 @@
             <image id="image-to-crop" class="high w3-block" style="max-width: 100%;"></image>
         </div>
         <div id="upload-container" class="high w3-block w3-display-container">
-            <label for="upload-field" class="upload-card w3-card-2 w3-display-middle w3-center w3-display-container w3-hover-shadow">
+            <label for="upload-field" id="upload-droparea" class="upload-card w3-card-2 w3-display-middle w3-center w3-display-container w3-hover-shadow">
                 <div class="w3-block w3-display-middle">
                     <div class="fas" style="font-size: 100px; color: #ccc;"></div>
                     <p class="w3-text-dark-grey">Выберите файл или перетащите его сюда</p>
@@ -144,8 +144,10 @@
     </div>
     <ul id="results-container" class="w3-container high-on-desktop w3-twothird w3-ul" style="min-height: 100%; overflow-y: auto">
         <div style="height: 77px;"></div>
-        <div id="preview-container" class="w3-display-topleft" style="position: fixed; margin-left: 33px;">
-            <div id="preview" style="overflow: hidden;"></div>
+        <div class="w3-display-topleft w3-twothird" style="position: fixed; padding: 0 33px;">
+            <div id="preview-container">
+                <div id="preview" style="overflow: hidden;"></div>
+            </div>
         </div>
         <p>Возможно, на картинке один из шрифтов ниже.<br>Ну как? Мы угадали? <span class="far"></span> Обязательно <a href="#comment-container">оставьте комментарий</a></p>
         <div style="overflow-x: auto">
