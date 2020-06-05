@@ -1,19 +1,19 @@
 //jshint asi:true
 
-var requestAttempt = 0
 
+/*
 function pseudoXMLHttpRequest(){
-    
+    this.requestAttempt = 0
 }
 pseudoXMLHttpRequest.prototype.open = function(method, location){
     this.location = location
 }
 pseudoXMLHttpRequest.prototype.send = function(data){
-    if(requestAttempt == 1 && this.onerror){
+    if(this.requestAttempt == 1 && this.onerror){
         this.onerror()
-        requestAttempt++
+        this.requestAttempt++
     } else if(this.location == '/upload'){
-        if(requestAttempt == 2)
+        if(this.requestAttempt == 2)
             this.responseText = JSON.stringify({
                 error: 'ошибка пришла с сервера'
             })
@@ -28,9 +28,11 @@ pseudoXMLHttpRequest.prototype.send = function(data){
             )
         
         setTimeout(this.onload, 500)
-        requestAttempt++
+        this.requestAttempt++
     }
 }
+*/
+var pseudoXMLHttpRequest = XMLHttpRequest
 
 function css_state(state){
     document.body.setAttribute('state', state)
@@ -162,8 +164,9 @@ fsm.loading_state.start = function(){
     var data = new FormData()
     data.append('image', file, file.name)
     var box = cropper.getData(true)
-    for (var key of ['x', 'y', 'width', 'height'])
+    ;(['x', 'y', 'width', 'height']).forEach(function(key){ //TODO: rewrite
         data.append(key, box[key].toString())
+    })
 
     var xhr = new pseudoXMLHttpRequest()
     xhr.onload = function (e) {
@@ -187,9 +190,10 @@ fsm.loading_state.start = function(){
         
         var table_src = ''
         for (var i = 0; i < response.length; i++) {
-            var [, font, link] = response[i]
+            var font = response[i][1],
+                link = response[i][2]
             table_src += '<tr>'
-            table_src += '<td><img src="previews/' + font + '.jpg" alt="' + font + '"></img></td>'
+            table_src += '<td><img src="static/previews/' + font + '.jpg" alt="' + font + '"></img></td>'
             table_src += '<td>' + font + '</td><td><a class="fas" href="' + link + '" target="_blank"></a></td>'
             table_src += '</tr>'
         }
@@ -273,7 +277,7 @@ function submit_comment(){
 
 fsm.steps = [ fsm.upload_state, fsm.crop_state, fsm.loading_state ]
 
-for (let step of steps)
-    step.disabled = true
+for(var i = 0; i < steps.length; i++)
+    steps[i].disabled = true
 
 fsm.upload_state()

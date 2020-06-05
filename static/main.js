@@ -6,11 +6,11 @@ var submitButton = document.getElementById('recognize')
 var upload = document.getElementById('upload')
 var cropper
 upload.onchange = function(e){
-var url = URL.createObjectURL(upload.files[0])
-if(!cropper)
-    image.src = url
-else
-    cropper.replace(url)
+    var url = URL.createObjectURL(upload.files[0])
+    if(!cropper)
+        image.src = url
+    else
+        cropper.replace(url)
 }
 
 image.onload = function(e){
