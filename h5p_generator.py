@@ -1,48 +1,42 @@
-import h5py
 import os
-from PIL import Image, ImageFont
+import sys
+import h5py
 import numpy as np
-import random as rnd
+from PIL import Image
 
-fonts_dir = 'fonts'
-fonts_list = [ f'font_{x}' for x in range(3) ] #sorted(os.listdir(fonts_dir))
-fonts_count = len(fonts_list)
+basepath = sys.argv[1]
+outpath = sys.argv[2]
+width = int(sys.argv[3])
 
-alphabet = 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'
-formats = [(63, 63), (63, 126)]
-imgs_per_fnt = 10
-min_font_size = 11
+folders = os.listdir(basepath)
+files = []
+min_files = -1
 
-dataset_len = fonts_count * imgs_per_fnt
+for i, folder in enumerate(folders, 0):
+    files.append(os.listdir('%s/%s' % (basepath, folder)))
+    count = len(files[i])
+    if min_files == -1 or count < min_files:
+        min_files = count
 
-with h5py.File('datasets.hdf5', 'w') as f:
+print('min_files', min_files)
 
+dataset_len = len(folders) * min_files
+fmt = (127, width)
+
+with h5py.File(outpath, 'w') as f:
+    f.attrs['class_num'] = len(folders)
     grp = f.create_group('train')
-    for fmt in formats:
-        data = grp.create_dataset(f'{fmt[0]}x{fmt[1]}', shape=(dataset_len, fmt[0], fmt[1]), dtype=np.uint8)
-        for class_id, font in enumerate(fonts_list):
-            for image_id in range(imgs_per_fnt):
-
-                img = np.array(generate_image(fmt, font))
-
-                i = class_id * imgs_per_fnt + image_id
-                data[i] = img
-
-def generate_image(size, font_name):
-    width, height = size
-    background = image_background(size)
-
-    font_size = rnd.randint(min_font_size, height)
-    font = ImageFont.truetype(os.path.join(fonts_dir, font_name), size=font_size)
-
-    text = rnd.choice(alphabet)
-    text_width = font.getsize(text)[0]
-    while text_width < width:
-        char = rnd.choice(alphabet)
-        text += char
-        text_width += font.getsize(char)[0]
-
-    return background
-
-def image_background(size):
-    return Image.new('L', size, 255)
+    data = grp.create_dataset('data', shape=(dataset_len, fmt[0], fmt[1]), dtype=np.uint8)
+    labels = grp.create_dataset('labels', shape=(dataset_len,), dtype='u4')
+    for folder_id, folder in enumerate(folders):
+        #labels[folder_id * min_files: folder_id * (min_files + 1) - 1] = [folder_id] * min_files
+        for file_id, file_name in enumerate(files[folder_id]):
+            if file_id == min_files:
+                break
+            img = Image.open('%s/%s/%s' % (basepath, folder, file_name))
+            img = np.array(img, dtype=np.uint8)
+            i = folder_id * min_files + file_id
+            data[i] = img
+            labels[i] = folder_id
+        print(folder_id, folder, 'ready')
+        

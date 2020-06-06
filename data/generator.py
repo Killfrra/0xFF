@@ -201,9 +201,9 @@ for font_name in font_list:
     if args.regular and not 'regular' in font_name.lower():
         continue
 
-    #if font_num == 5: break
+    if font_num == 1: break
     font_num += 1
-    if font_num < 5: continue
+    #if font_num < 5: continue
     
     #savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
     #os.makedirs(savedir, exist_ok=True)
