@@ -50,7 +50,7 @@ def drop_shadow(from_alpha, from_on_to_offset, to, shadow_offset, blur_radius, c
 
 def create_random_txt(text, font, font_size):
     fill_color = rnd.randint(0, 255)
-    stroke_width = rnd.randint(0, round(font_size * 0.3))
+    stroke_width = rnd.randint(0, round(font_size * 0.3)) * rnd.choice([0,1])
     stroke_fill_color = rnd.randint(0, 255)
     character_spacing = rnd.randint(0, 20)
 
@@ -165,24 +165,53 @@ def image_background(size): # from trdg.background_generator
 
     return pic.crop((x, y, x + width, y + height))
 
-i = 384
+import imgaug as ia
+import imgaug.augmenters as iaa
+from imgaug.augmentables import SegmentationMapsOnImage
+from math import sqrt
+
+preprocess = iaa.Sequential([
+    iaa.PerspectiveTransform(keep_size=False, fit_output=False),
+    iaa.PiecewiseAffine(),
+    #iaa.ElasticTransformation(alpha=(0, 0.25), sigma=(0, 0.05)),
+    iaa.Affine(scale={'x': (1.0, 1.1), 'y':(1.0, 1.1)}, rotate=(-10, 10), shear=(-10, 10), fit_output=False),
+    iaa.OneOf([
+        iaa.GaussianBlur(sigma=(0, 2.0)),
+        iaa.Sometimes(0.5, [iaa.MotionBlur(k=3)])
+    ]),
+    #iaa.imgcorruptlike.GlassBlur(severity=1),
+    #iaa.imgcorruptlike.DefocusBlur(severity=1),
+    #iaa.imgcorruptlike.Pixelate(severity=1)
+    #iaa.imgcorruptlike.ShotNoise(severity=1)
+    iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.02*255)),
+    iaa.JpegCompression(compression=(0, 75)),
+    iaa.Crop(percent=0.01),
+])
+
+postprocess = iaa.Sequential([
+    iaa.Resize({"height": 63, "width": "keep-aspect-ratio"}),
+    iaa.CropToFixedSize(63, 252),
+    iaa.PadToFixedSize(63, 63, pad_mode=ia.ALL, pad_cval=(0, 255))
+])
+
+i = 0
 font_num = 0
 for font_name in font_list:
     
     if args.regular and not 'regular' in font_name.lower():
         continue
 
-    if font_num == 1: break
+    #if font_num == 5: break
     font_num += 1
-    #if font_num < 2: continue
+    if font_num < 5: continue
     
-    savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
-    os.makedirs(savedir, exist_ok=True)
+    #savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
+    #os.makedirs(savedir, exist_ok=True)
 
-                   #
-    for _ in range(len(os.listdir(savedir)), args.images):
+                   #len(os.listdir(savedir))
+    for _ in range(0, args.images):
     
-        font_size = rnd.randint(32, 72)
+        font_size = rnd.randint(22, 72)
         font = ImageFont.truetype(os.path.join(args.font_folder, font_name), size=font_size)
 
         str = random_string_from_dict(1)
@@ -190,11 +219,18 @@ for font_name in font_list:
 
         txt_alpha = txt.split()[-1]
 
-        border = rnd.randint(0, round(font_size * 0.3))
-        txt_offset = (border, border)
-        bg_size = (txt.size[0] + 2*border, txt.size[1] + 2*border)
+        border = 16 #rnd.randint(0, round(font_size * 0.3))
+        #txt_offset = (border, border)
+        max_text_side = round(max(txt.size[0], txt.size[1]) * 1.1)
+        min_text_side = round(min(txt.size[0], txt.size[1]) * 1.1)
+        bg_side = max_text_side + min_text_side // 2 + border
+        bg_size = [ bg_side ] * 2 #(txt.size[0] + 2*border, txt.size[1] + 2*border)
         txt_background = image_background(bg_size)
 
+        txt_offset = (
+            (txt_background.size[0] - txt.size[0]) // 2,
+            (txt_background.size[1] - txt.size[1]) // 2
+        )
         shadow_count = rnd.randint(0, 5)
         while shadow_count > 0:
             drop_random_shadow(txt_alpha, txt_offset, txt_background)
@@ -206,9 +242,46 @@ for font_name in font_list:
             txt_mask = Image.new('L', bg_size, 0)
             txt_mask.paste(mask, txt_offset)
             #txt_mask = txt_mask.resize((txt_mask.size[0] // 8, txt_mask.size[1] // 8))
-            txt_mask.save('%s/%d_mask.tiff' % (savedir, i))
+            #txt_mask.save('%s/%d_mask.tiff' % (savedir, i))
 
-        #txt_background = pil_img(seq(image=np_img(txt_background)))
+        mask = SegmentationMapsOnImage(np_img(txt_mask), txt_mask.size)
+        background, mask = preprocess(image=np_img(txt_background), segmentation_maps=mask)
+        mask = pil_img(mask.get_arr())
+        bbox = mask.getbbox()
+        bbox = (max(0, bbox[0] - border),
+                max(0, bbox[1] - border),
+                min(bbox[2] + border, mask.size[0]),
+                min(bbox[3] + border, mask.size[0]))
+        background = pil_img(background).crop(bbox)
+
+        #mask.save(f'{savedir}/{i}_mask.tiff')
+
+        square_side = 127
+
+        background = background.resize((
+            round(square_side * background.size[0] / background.size[1]),
+            square_side
+        ))
+
+        nearest_width = (background.size[0] // square_side) * square_side
+        
+        if nearest_width > 0:
+            diff = background.size[0] - nearest_width 
+            background = background.crop((
+                0 + diff // 2,
+                0,
+                nearest_width + diff // 2,
+                square_side
+            ))
+        else:
+            continue
+
+        savedir = f'{args.output_dir}/{nearest_width}/{font_name[:-4]}'
+        os.makedirs(savedir, exist_ok=True)
+
+        background.save(f'{savedir}/{i}.tiff')
+
+        """
         save_path = '%s/%d.tiff' % (savedir, i)
         try:
             txt_background.save(save_path)
@@ -218,6 +291,7 @@ for font_name in font_list:
                 i -= 1
             except:
                 pass
+        """
 
         i += 1
 
