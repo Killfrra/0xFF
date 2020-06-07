@@ -7,6 +7,7 @@ from PIL import Image
 basepath = sys.argv[1]
 outpath = sys.argv[2]
 width = int(sys.argv[3])
+group = sys.argv[4]
 
 folders = os.listdir(basepath)
 files = []
@@ -25,7 +26,7 @@ fmt = (127, width)
 
 with h5py.File(outpath, 'w') as f:
     f.attrs['class_num'] = len(folders)
-    grp = f.create_group('train')
+    grp = f.create_group(group)
     data = grp.create_dataset('data', shape=(dataset_len, fmt[0], fmt[1]), dtype=np.uint8)
     labels = grp.create_dataset('labels', shape=(dataset_len,), dtype='u4')
     for folder_id, folder in enumerate(folders):
