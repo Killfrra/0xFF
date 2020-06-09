@@ -200,11 +200,14 @@ fsm.loading_state.start = function(){
         
         var table_src = ''
         for (var i = 0; i < response.length; i++) {
-            var font = response[i][1],
-                link = response[i][2]
+            var font = response[i][0],
+                license = response[i][1],
+                link = response[i][2] || '#'
             table_src += '<tr>'
             table_src += '<td><img src="static/previews/' + font + '.jpg" alt="' + font + '"></img></td>'
-            table_src += '<td>' + font + '</td><td><a class="fas" href="' + link + '" target="_blank"></a></td>'
+            table_src += '<td>' + font + '</td>'
+            table_src += '<td>' + license + '</td>'
+            table_src += '<td><a class="fas" href="' + link + '" target="_blank"></a></td>'
             table_src += '</tr>'
         }
         results.innerHTML += table_src
@@ -298,7 +301,7 @@ function submit_comment(){
     
     var xhr = new pseudoXMLHttpRequest()
     xhr.open('POST', '/comment')
-    xhr.send(data)
+    xhr.send(JSON.stringify(data))
     
     document.body.removeAttribute('error')
     comment_textarea.placeholder = 'Спасибо за ваш отзыв!'
