@@ -1,6 +1,5 @@
 //jshint asi:true
 
-
 /*
 function pseudoXMLHttpRequest(){
     this.requestAttempt = 0
@@ -55,6 +54,7 @@ var error = document.getElementById('error')
 var comment_container = document.getElementById('comment-container') // not used
 var comment_textarea = comment_container.getElementsByTagName('textarea')[0]
 var comment_send_btn = comment_container.getElementsByTagName('button')[0]
+var offscreen_canvas = document.getElementById('offscreen-canvas')
 
 var file, cropper, image_url, cropper_inited = false;
 function update_cropper(){
@@ -159,15 +159,25 @@ fsm.crop_state.end = function(){
 fsm.loading_state = function loading() {
     this.switch(2, this.loading_state, 'loading')
 }
+function grayscale(ctx, imageData) {
+    var data = imageData.data
+    for (var i = 0; i < data.length; i += 4) {
+        var avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        data[i] = avg;      // red
+        data[i + 1] = avg;  // green
+        data[i + 2] = avg;  // blue
+    }
+    ctx.putImageData(imageData, 0, 0);
+}
 fsm.loading_state.start = function(){
-    
+    /*
     var data = new FormData()
     data.append('image', file, file.name)
     var box = cropper.getData(true)
     ;(['x', 'y', 'width', 'height']).forEach(function(key){ //TODO: rewrite
         data.append(key, box[key].toString())
     })
-
+    */
     var xhr = new pseudoXMLHttpRequest()
     xhr.onload = function (e) {
         // пришли результаты, но до этого пользователь струсил и нажал "назад"
@@ -205,8 +215,30 @@ fsm.loading_state.start = function(){
     xhr.onerror = function () {
         show_error('Произошла ошибка при отправке данных на сервер')
     }
-    xhr.open('POST', '/upload')
-    xhr.send(data)
+    var bbox = cropper.getCropBoxData()
+    while(bbox.height / 2 > 127){
+        bbox.width /= 2
+        bbox.height /= 2
+    }
+    var canvas = cropper.getCroppedCanvas({
+        width: bbox.width,
+        height: bbox.height,
+        //maxHeight: 127,
+        //imageSmoothingEnabled: false,
+        //imageSmoothingQuality: 'low'
+    })
+    console.log(canvas.width, canvas.height)
+    var ctx = canvas.getContext('2d')
+    var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    grayscale(ctx, imageData)
+    canvas.toBlob(function(blob){
+        var data = new FormData()
+        data.append('image', blob)
+        xhr.open('POST', '/upload')
+        xhr.send(data)
+    }, 'image/jpeg')
+    //xhr.open('POST', '/upload')
+    //xhr.send(data)
 }
 fsm.loading_state.end = function(){
     steps[1].disabled = false

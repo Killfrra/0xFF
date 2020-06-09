@@ -1,140 +1,181 @@
 import torch
-from torch import nn
-from torch.optim import Adam, SGD
-import torchvision.datasets as datasets
-from torch.utils.data import DataLoader
-from torchvision import transforms
-from ignite.engine import create_supervised_trainer, create_supervised_evaluator, Events
-from ignite.metrics import Accuracy, Loss, RunningAverage
-from ignite.handlers import Checkpoint, DiskSaver, EarlyStopping
-#from encoder.model import Autoencoder
-from model import DeepFont
-import signal
-import glob
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import torchvision
+from torchvision import datasets, models, transforms
+import matplotlib.pyplot as plt
+import time
 import os
-#from torch_lr_finder import LRFinder
-from torch.utils.tensorboard import SummaryWriter
+import copy
+import torch.nn.init as init
 
-learning_rate = 0.002
-momentum = 0.9 #?
-weight_decay = 0.0005
+from torch.utils.data import Dataset
+from torchvision.transforms.functional import to_tensor
+import h5py
+import torch
 
-train_dataset = 'datasets/mini_ru_synth_train_preprocessed'
-eval_dataset  = 'datasets/mini_ru_synth_test_preprocessed'
-output_dir = 'output/classifier'
-last_checkpoint = None #'output/classificator/checkpoint_loss=-0.015746485793698094.pth'
-#last_encoder_checkpoint = 'output/autoencoder/checkpoint_loss=-0.002959001278966386.pth'
-train_batch_size = 256
-val_batch_size = 256
-num_workers = 6
+from torch.utils.data import BatchSampler
 
-check_interval = 1
-patience = 10
-ngpu = 1
 
-cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if cuda and ngpu > 0 else "cpu")
+class CustomDataset(Dataset):
 
-data_transform = transforms.Compose([
-    transforms.Grayscale(),
-    transforms.ToTensor()
-])
+    def __init__(self, filepath='datasets.hdf5', group='train'):
+        self.file = h5py.File(filepath, 'r')
+        self.class_num = self.file.attrs['class_num']
+        self.group = self.file[group]
+        self.length = len(self.group['data'])
+        self.current = 0
 
-def get_data_loaders(train_batch_size, val_batch_size, workers):
-    train_loader = DataLoader(datasets.ImageFolder(train_dataset, data_transform), batch_size=train_batch_size, shuffle=True, num_workers=workers)
-    val_loader  =  DataLoader(datasets.ImageFolder(eval_dataset, data_transform), batch_size=train_batch_size, num_workers=workers)
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        data = self.group['data'][idx]
+        label = self.group['labels'][idx]
+        return (to_tensor(data), label.astype('i8'))
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current < self.length:
+            item = self.__getitem__(self.current)
+            self.current += 1
+            return item
+        raise StopIteration
+
+    def close(self):
+        self.file.close()
+
+from model import SqueezeNet
+
+# Number of classes in the dataset
+num_classes = 42
+
+# Number of epochs to train for 
+num_epochs = 32
+
+def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
+    since = time.time()
+
+    val_acc_history = []
     
-    return train_loader, val_loader
+    best_model_wts = copy.deepcopy(model.state_dict())
+    best_acc = 0.0
 
-#encoder = Autoencoder(ngpu, enable_decoder=False) #.to(device)
-model = DeepFont() #encoder, ngpu)                 #.to(device)
-optimizer = Adam(model.parameters(), learning_rate)
-#optimizer = SGD(model.parameters(), learning_rate) #, momentum, weight_decay=weight_decay)
+    for epoch in range(num_epochs):
+        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+        print('-' * 10)
+
+        # Each epoch has a training and validation phase
+        for phase in ['train', 'val']:
+            if phase == 'train':
+                model.train()  # Set model to training mode
+            else:
+                model.eval()   # Set model to evaluate mode
+
+            running_loss = 0.0
+            running_corrects = 0
+
+            # Iterate over data.
+            for inputs, labels in dataloaders[phase]:
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+
+                # zero the parameter gradients
+                optimizer.zero_grad()
+
+                # forward
+                # track history if only in train
+                with torch.set_grad_enabled(phase == 'train'):
+                    # Get model outputs and calculate loss
+
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
+
+                    _, preds = torch.max(outputs, 1)
+
+                    # backward + optimize only if in training phase
+                    if phase == 'train':
+                        loss.backward()
+                        optimizer.step()
+
+                # statistics
+                running_loss += loss.item() * inputs.size(0)
+                running_corrects += torch.sum(preds == labels.data)
+
+            epoch_loss = running_loss / len(dataloaders[phase].dataset)
+            epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
+
+            print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
+
+            # deep copy the model
+            if phase == 'val' and epoch_acc > best_acc:
+                best_acc = epoch_acc
+                best_model_wts = copy.deepcopy(model.state_dict())
+                torch.save(best_model_wts, f'squeezenet_{round(best_acc.item() * 100)}acc')
+
+            if phase == 'val':
+                val_acc_history.append(epoch_acc)
+
+        print()
+
+    time_elapsed = time.time() - since
+    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+    print('Best val Acc: {:4f}'.format(best_acc))
+
+    # load best model weights
+    model.load_state_dict(best_model_wts)
+    return model, val_acc_history
+
+
+# Initialize the model for this run
+model = SqueezeNet(num_classes)
+state_dict = torch.load('squeezenet_72acc')
+del state_dict['classifier.1.weight']
+del state_dict['classifier.1.bias']
+model.load_state_dict(state_dict, strict=False)
+
+# Print the model we just instantiated
+#print(model)
+
+print("Initializing Datasets and Dataloaders...")
+
+# Create training and validation datasets
+image_datasets = {
+    'train': CustomDataset('datasets/miniru2_381.hdf5', 'train'),
+    #datasets.ImageFolder(data_dir + 'train', data_transforms['train']),
+    'val': CustomDataset('datasets/miniru2_508.hdf5', 'train'),
+    #datasets.ImageFolder(data_dir + 'test', data_transforms['val'])
+}
+
+kwargs = { 'drop_last':True, 'pin_memory': True } #'num_workers': 6, 'pin_memory': True}
+# Create training and validation dataloaders
+dataloaders_dict = {
+    'train': torch.utils.data.DataLoader(image_datasets['train'], batch_size=64, shuffle=True, **kwargs),
+    'val': torch.utils.data.DataLoader(image_datasets['val'], batch_size=32, shuffle=False, **kwargs)
+}
+
+# Detect if we have a GPU available
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
+# Send the model to GPU
+model = model.to(device)
+
+# Gather the parameters to be optimized/updated in this run
+params_to_update = model.parameters()
+print("Params to learn:")
+for name,param in model.named_parameters():
+    if param.requires_grad == True:
+        print("\t",name)
+
+# Observe that all parameters are being optimized
+optimizer = optim.Adadelta(params_to_update)
+
+# Setup the loss fxn
 criterion = nn.CrossEntropyLoss()
 
-"""
-encoder_checkpoint = torch.load(last_encoder_checkpoint)
-Checkpoint.load_objects({ 'model': encoder }, encoder_checkpoint)
-print(last_encoder_checkpoint, 'loaded')
-
-train_loader, val_loader = get_data_loaders(train_batch_size, val_batch_size, num_workers)
-
-lr_finder = LRFinder(model, optimizer, criterion, device)
-lr_finder.range_test(train_loader, val_loader=val_loader, start_lr=1e-8, end_lr=0.01, num_iter=100, step_mode="linear")
-lr_finder.plot(skip_start=0, skip_end=0, log_lr=False)
-#lr_finder.reset()
-exit()
-"""
-
-trainer = create_supervised_trainer(model, optimizer, criterion, device)
-metrics = { 'accuracy': Accuracy(), 'loss': Loss(criterion) }
-evaluator = create_supervised_evaluator(model, metrics, device)
-writer = SummaryWriter()
-
-def sigint_handler(number, frame):
-    trainer.terminate()
-
-signal.signal(signal.SIGINT, sigint_handler)
-
-RunningAverage(output_transform=lambda x: x).attach(trainer, 'loss')
-
-iteration = 0
-@trainer.on(Events.ITERATION_COMPLETED)
-def log_training_loss(engine):
-    global iteration
-    writer.add_scalar('train_loss', engine.state.output, iteration)
-    iteration += 1
-    #print('Epoch %d - Loss: %.4f' % (engine.state.epoch, engine.state.output))
-
-def loss_function(engine):
-    return -engine.state.metrics['loss']
-
-def global_step_transform(engine, event):
-    return engine.state.epoch
-
-to_save = { 'trainer': trainer, 'model': model, 'optimizer': optimizer }
-handler = Checkpoint(to_save, DiskSaver(output_dir, require_empty=False), global_step_transform=global_step_transform, n_saved=None)
-trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
-
-#@trainer.on(Events.EPOCH_COMPLETED)
-def print_trainer_logs(engine):
-    avg_loss = engine.state.metrics['loss']
-    print('Epoch %d - Avg loss: %.4f' % (engine.state.epoch, avg_loss))
-
-train_loader, val_loader = get_data_loaders(train_batch_size, val_batch_size, num_workers)
-
-@trainer.on(Events.EPOCH_COMPLETED(every=check_interval))
-def check_accuracy(engine):
-    evaluator.run(val_loader, max_epochs=1)
-    accuracy_function(evaluator)
-
-def accuracy_function(engine):
-    #accuracy = engine.state.metrics['accuracy']
-    loss     = engine.state.metrics['loss']
-    writer.add_scalars('epoch', {
-        'val_loss': evaluator.state.metrics['loss'],
-        'val_accuracy': evaluator.state.metrics['accuracy'],
-        'avg_train_loss': trainer.state.metrics['loss']
-    }, trainer.state.epoch)
-    #print('Epoch %d - Accuracy %.4f - Loss %.4f' % (engine.state.epoch, accuracy, loss))
-    return -loss
-
-#handler = EarlyStopping(round(patience / check_interval), accuracy_function, trainer)
-#evaluator.add_event_handler(Events.COMPLETED, handler)
-"""
-encoder_checkpoint = torch.load(last_encoder_checkpoint)
-Checkpoint.load_objects({ 'model': encoder }, encoder_checkpoint)
-print(last_encoder_checkpoint, 'loaded')
-
-def get_last_checkpoint(path):
-    files = sorted(glob.glob(path + '/checkpoint*.pth'), key=os.path.getmtime, reverse=True)
-    return files[0] if len(files) > 0 else None
-
-last_checkpoint = get_last_checkpoint(output_dir)
-
-if last_checkpoint:
-    checkpoint = torch.load(last_checkpoint)
-    Checkpoint.load_objects(to_save, checkpoint)
-    print(last_checkpoint, 'loaded')
-"""
-trainer.run(train_loader, max_epochs=100)
+# Train and evaluate
+model, hist = train_model(model, dataloaders_dict, criterion, optimizer, num_epochs=num_epochs)
