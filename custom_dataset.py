@@ -1,47 +1,71 @@
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, IterableDataset, DataLoader, Sampler
 from torchvision.transforms.functional import to_tensor, to_pil_image
-import h5py
+import random as rnd
 import torch
+from torch.utils.data import RandomSampler, SequentialSampler, BatchSampler
+import numpy as np
 
-class CustomDataset(Dataset):
+file = {
+    '127': {
+        'data': np.array([0, 1, 2]),
+        'labels': np.array(['a', 'b', 'c'])
+    },
+    '254': {
+        'data': np.array([3, 4, 5, 6]),
+        'labels': np.array(['d', 'e', 'f', 'g'])
+    }
+}
 
-    def __init__(self, filepath='datasets.hdf5', group='train'):
-        self.file = h5py.File(filepath, 'r')
-        self.class_num = self.file.attrs['class_num']
-        self.group = self.file[group]
-        self.length = len(self.group['data'])
-        self.current = 0
+class CustomSampler(Sampler):
+
+    def __init__(self, file, batch_size=1, shuffle=False, drop_last=False):
+        #print('sampler init called')
+        self.file = file
+        self.shuffle = shuffle
+        if shuffle:
+            self.sampler = RandomSampler
+        else:
+            self.sampler = SequentialSampler
+        self.batch_size = batch_size
+        self.drop_last = drop_last
+        self.__iter__()
+
+    def __iter__(self):
+        #print('iter called')
+        batches = []
+        for key in self.file:
+            group_batches = list(BatchSampler(self.sampler(self.file[key]['data']), self.batch_size, self.drop_last))
+            batches.extend(zip([key] * len(group_batches), group_batches))
+            rnd.shuffle(batches)
+        self.length = len(batches)
+        return iter(batches)
 
     def __len__(self):
         return self.length
 
+
+class CustomDataset(Dataset):
+
+    def __init__(self, file, sampler):
+        #print('init called')
+        self.file = file
+        self.length = len(sampler)
+
     def __getitem__(self, idx):
-        data = self.group['data'][idx]
-        label = self.group['labels'][idx]
-        labels = torch.zeros(self.class_num) # int64?
-        labels[label] = 1
+        #print('getitem', idx)
+        group, indexes = idx
+        grp = self.file[group]
+        data = grp['data'][indexes]
+        labels = grp['labels'][indexes]
+        return (data, labels)
 
-        return (to_tensor(data), labels)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.current < self.length:
-            item = self.__getitem__(self.current)
-            self.current += 1
-            return item
-        raise StopIteration
-
-    def close(self):
-        self.file.close()
+    def __len__(self):
+        #print('len called')
+        return self.length
 
 if __name__ == '__main__':
-    dataset = CustomDataset()
-    for i, (data, labels) in enumerate(dataset):
-        print(i)
-        #image = to_pil_image(data)
-        #print(labels.argmax(dim=0))
-        #savedir = 'datasets/test'
-        #image.save('%s/%d.tiff' % (savedir, i))
-    dataset.close()
+    sampler = CustomSampler(file, batch_size=2)
+    dataset = CustomDataset(file, sampler)
+    dataloader = DataLoader(dataset, batch_size=None, sampler=sampler)
+    for data, labels in dataloader:
+        print(data, labels)

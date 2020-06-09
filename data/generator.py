@@ -171,21 +171,21 @@ from imgaug.augmentables import SegmentationMapsOnImage
 from math import sqrt
 
 preprocess = iaa.Sequential([
-    iaa.PerspectiveTransform(keep_size=False, fit_output=False),
-    iaa.PiecewiseAffine(),
+    #iaa.PerspectiveTransform(keep_size=False, fit_output=False),
+    #iaa.PiecewiseAffine(),
     #iaa.ElasticTransformation(alpha=(0, 0.25), sigma=(0, 0.05)),
-    iaa.Affine(scale={'x': (1.0, 1.1), 'y':(1.0, 1.1)}, rotate=(-10, 10), shear=(-10, 10), fit_output=False),
-    iaa.OneOf([
-        iaa.GaussianBlur(sigma=(0, 2.0)),
-        iaa.Sometimes(0.5, [iaa.MotionBlur(k=3)])
-    ]),
+    #iaa.Affine(scale={'x': (1.0, 1.1), 'y':(1.0, 1.1)}, rotate=(-10, 10), shear=(-10, 10), fit_output=False),
+    #iaa.OneOf([
+    #    iaa.GaussianBlur(sigma=(0, 2.0)),
+    #    iaa.Sometimes(0.5, [iaa.MotionBlur(k=3)])
+    #]),
     #iaa.imgcorruptlike.GlassBlur(severity=1),
     #iaa.imgcorruptlike.DefocusBlur(severity=1),
     #iaa.imgcorruptlike.Pixelate(severity=1)
     #iaa.imgcorruptlike.ShotNoise(severity=1)
     iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.02*255)),
     iaa.JpegCompression(compression=(0, 75)),
-    iaa.Crop(percent=0.01),
+    #iaa.Crop(percent=0.01),
 ])
 
 postprocess = iaa.Sequential([
@@ -201,9 +201,9 @@ for font_name in font_list:
     if args.regular and not 'regular' in font_name.lower():
         continue
 
-    if font_num == 1: break
+    #if font_num == 42: break
     font_num += 1
-    #if font_num < 5: continue
+    if font_num < 31: continue
     
     #savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
     #os.makedirs(savedir, exist_ok=True)
@@ -279,7 +279,7 @@ for font_name in font_list:
         savedir = f'{args.output_dir}/{nearest_width}/{font_name[:-4]}'
         os.makedirs(savedir, exist_ok=True)
 
-        background.save(f'{savedir}/{i}.tiff')
+        background.save(f'{savedir}/{i}_0.tiff')
 
         """
         save_path = '%s/%d.tiff' % (savedir, i)

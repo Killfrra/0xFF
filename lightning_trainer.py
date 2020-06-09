@@ -55,23 +55,23 @@ transform = transforms.Compose([
     #transforms.Lambda(lambda img: transforms.functional.resize(img, 63) if min(img.size[0], img.size[1]) < 63 else img),
     #transforms.Resize(63),
     #transforms.RandomCrop((63, 252), pad_if_needed=True, padding_mode='reflect'),
-    transforms.Lambda(unnamed),
+    #transforms.Lambda(unnamed),
     transforms.ToTensor()
 ])
 
 train_loader = DataLoader(
-    datasets.ImageFolder('ram/mini_ru_train', transform),
+    datasets.ImageFolder('datasets/mini_ru_train', transform),
     batch_size=hparams.batch_size, shuffle=True, **kwargs
 )
 val_loader   = DataLoader(
-    datasets.ImageFolder('ram/mini_ru_test', transform),
+    datasets.ImageFolder('datasets/mini_ru_test', transform),
     batch_size=hparams.batch_size, shuffle=False, **kwargs
 )
 
 trainer = Trainer(
     gpus=1, #accumulate_grad_batches=32,
     checkpoint_callback=checkpoint_callback,
-    #auto_lr_find=True,
-    resume_from_checkpoint='saves/main/epoch=45.ckpt'
+    auto_lr_find=True,
+    #resume_from_checkpoint='saves/main/epoch=45.ckpt'
 )
 trainer.fit(model, train_loader, val_loader)
