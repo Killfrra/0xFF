@@ -202,12 +202,15 @@ fsm.loading_state.start = function(){
         for (var i = 0; i < response.length; i++) {
             var font = response[i][0],
                 license = response[i][1],
-                link = response[i][2] || '#'
+                link = response[i][2]
             table_src += '<tr>'
-            table_src += '<td><img src="static/previews/' + font + '.jpg" alt="' + font + '"></img></td>'
+            table_src += '<td><img src="static/previews/' + font.replace(/ /g, '') + '_' + i + '.jpg" alt="' + font + '"></img></td>'
             table_src += '<td>' + font + '</td>'
             table_src += '<td>' + license + '</td>'
-            table_src += '<td><a class="fas" href="' + link + '" target="_blank"></a></td>'
+            if(link)
+                table_src += '<td><a class="fas" href="' + link + '" target="_blank"></a></td>'
+            else
+                table_src += '<td></td>'
             table_src += '</tr>'
         }
         results.innerHTML += table_src
