@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, send_from_directory, jsonify
 from werkzeug.utils import secure_filename
-from eval import classify
+from onnx_eval import classify
 from PIL import Image
 import time
 import os
