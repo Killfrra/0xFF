@@ -1,0 +1,122 @@
+html, body, .high {
+    height: 100%;
+}
+.upload-card {
+    width: 100%;
+    height: 100%;
+    max-width: 600px;
+    max-height: 337px;
+}
+.no-focus {
+    outline: none;
+}
+.clickable {
+    cursor:pointer
+}
+.clickable:hover {
+    font-weight: bold;
+}
+.strong.clickable:hover {
+    color: grey !important;
+}
+.step {
+    border: 0;
+    padding: 0;
+    background: none;
+    color: black;
+}
+.step:not([disabled]){
+    cursor: pointer;
+}
+.step:not([disabled]):hover {
+    font-weight: bold;
+}
+#results-container li, #results-container img {
+    height: 38.5px; /* 15*1.5+2*8 */
+    padding: 0;
+}
+.header {
+    position: fixed;
+    bottom: 0;
+}
+html {
+    scroll-behavior: smooth;
+}
+@media (min-width:601px){
+    .high-on-desktop {
+        height: 100%;
+    }
+    .header {
+        position: static;
+    }
+    .hidden-on-desktop {
+        display: none;
+    }
+    .footer {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        padding: 15px;
+    }
+}
+
+#cropper-container,
+#upload-container,
+#results-container,
+#instructions-crop,
+#error-container,
+#comment-container,
+#spinner,
+#solution
+{
+    display: none;
+}
+
+body[state="upload"] #upload-container,
+body[state="crop"] #cropper-container,
+body[state="crop"] #instructions-crop,
+body[state="loading"] #cropper-container,
+body[state="loading"] #spinner,
+body[state="results"] #results-container,
+body[state="results"] #comment-container,
+body[error] #error-container,
+body[error="comment"] #comment-container,
+body[error="comment"] #solution
+{
+    display: block;
+}
+
+body[state="upload"] .step-0,
+body[state="crop"] .step-1,
+body[state="loading"] .step-2,
+body[state="results"] .step-2 {
+    font-weight: bold;
+}
+
+body[state="loading"] .hide-when-spinner {
+    visibility: hidden;
+}
+
+a[href="#instructions"],
+a[href="#error-container"] {
+    display: none;
+}
+
+body:not([error]) a[href="#instructions"],
+body[error] a[href="#error-container"]{
+    display: inline-block;
+}
+
+body[state="results"] #cropper-and-upload-container {
+    display: none;
+}
+
+#preview-container {
+    width: 100%;
+    height: 77px;
+    overflow: hidden;
+}
+
+td:first-child {
+    background-color: white;
+}

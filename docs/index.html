@@ -4,129 +4,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="shortcut icon" type="image/ico" href="static/favicon.ico">
 <link rel="stylesheet" href="static/w3.css">
+<link rel="stylesheet" href="static/index.css">
 <link rel="stylesheet" href="static/cropper.min.css" >
 <link rel="stylesheet" href="static/fontawesome-solid.min.css">
 <link rel="stylesheet" href="static/fontawesome-regular.min.css">
-
-<style>
-    html, body, .high {
-        height: 100%;
-    }
-    .upload-card {
-        width: 100%;
-        height: 100%;
-        max-width: 600px;
-        max-height: 337px;
-    }
-    .no-focus {
-        outline: none;
-    }
-    .clickable {
-        cursor:pointer
-    }
-    .clickable:hover {
-        font-weight: bold;
-    }
-    .strong.clickable:hover {
-        color: grey !important;
-    }
-    .step {
-        border: 0;
-        padding: 0;
-        background: none;
-        color: black;
-    }
-    .step:not([disabled]){
-        cursor: pointer;
-    }
-    .step:not([disabled]):hover {
-        font-weight: bold;
-    }
-    #results-container li, #results-container img {
-        height: 38.5px; /* 15*1.5+2*8 */
-        padding: 0;
-    }
-    .header {
-        position: fixed;
-        bottom: 0;
-    }
-    html {
-        scroll-behavior: smooth;
-    }
-    @media (min-width:601px){
-        .high-on-desktop {
-            height: 100%;
-        }
-        .header {
-            position: static;
-        }
-        .hidden-on-desktop {
-            display: none;
-        }
-    }
-
-    #cropper-container,
-    #upload-container,
-    #results-container,
-    #instructions-crop,
-    #error-container,
-    #comment-container,
-    #spinner,
-    #solution
-    {
-        display: none;
-    }
-
-    body[state="upload"] #upload-container,
-    body[state="crop"] #cropper-container,
-    body[state="crop"] #instructions-crop,
-    body[state="loading"] #cropper-container,
-    body[state="loading"] #spinner,
-    body[state="results"] #results-container,
-    body[state="results"] #comment-container,
-    body[error] #error-container,
-    body[error="comment"] #comment-container,
-    body[error="comment"] #solution
-    {
-        display: block;
-    }
-
-    body[state="upload"] .step-0,
-    body[state="crop"] .step-1,
-    body[state="loading"] .step-2,
-    body[state="results"] .step-2 {
-        font-weight: bold;
-    }
-
-    body[state="loading"] .hide-when-spinner {
-        visibility: hidden;
-    }
-
-    a[href="#instructions"],
-    a[href="#error-container"] {
-        display: none;
-    }
-
-    body:not([error]) a[href="#instructions"],
-    body[error] a[href="#error-container"]{
-        display: inline-block;
-    }
-
-    body[state="results"] #cropper-and-upload-container {
-        display: none;
-    }
-
-    #preview-container {
-        width: 100%;
-        height: 77px;
-        overflow: hidden;
-    }
-
-    td:first-child {
-        background-color: white;
-    }
-
-</style>
 
 <body class="w3-light-grey" state="results">
 
@@ -197,13 +78,17 @@
                 <textarea class="w3-input w3-border" style="resize:vertical" placeholder="Будем рады любому отклику"></textarea>
                 <button class="w3-button w3-teal w3-block" onclick="submit_comment()">Отправить</button>
             </div>
+            <div class="footer w3-block w3-small w3-text-grey w3-right-align">
+                <a href="/static/contact_us.html" target="_blank">Связаться с нами</a>
+                <a href="/static/policy.html" target="_blank">Политика</a>
+            </div>
             <div class="hidden-on-desktop" style="height: 54.5px;"><!-- 15 * 1.5 + 16 * 2 --></div>
         </div>
     </div>
     <div id="notification" class="w3-panel w3-container w3-twothird w3-display-bottomleft" style="/*position: fixed;*/">
         <div class="w3-container w3-sand w3-leftbar w3-cell-row">
             <div class="w3-cell" style="width: 90%;">
-                <p>Используя наш сайт, вы соглашаетесь с политикой, ознакомиться с которой можно <a href="#">тут</a></p>
+                <p>Используя наш сайт, вы соглашаетесь с политикой, ознакомиться с которой можно <a href="/static/policy.html" target="_blank">тут</a></p>
             </div><div class="w3-cell w3-right-align" style="width: 10%;">
                 <span class="strong clickable" style="color: #ccc; user-select: none" onclick="notification.style.display = 'none'">&times;</span>
             </div>

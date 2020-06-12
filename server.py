@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_from_directory, jsonify
+from flask import Flask, render_template, request, send_from_directory, jsonify, redirect
 from werkzeug.utils import secure_filename
 from onnx_eval import classify
 from PIL import Image
@@ -11,8 +11,7 @@ app = Flask(__name__, static_folder = basepath + '/static')
 
 @app.route('/')
 def index():
-   cache_timeout = app.get_send_file_max_age('index.html')
-   return send_from_directory(basepath, 'index.html', cache_timeout=cache_timeout)
+   return send_from_directory(basepath, 'index.html')
 
 from fonts import classes
 
@@ -37,14 +36,17 @@ def upload_file():
 
 @app.route('/comment', methods = ['POST'])
 def leave_comment():
-   data = request.get_json(force=True) #TODO: fix at client side
    with open('feedback.txt', 'a') as feedback_file:
+      if request.is_json:
+         data = request.json
+      else:
+         data = request.form
       feedback_file.write(f"""
 > {round(time.time())} {request.headers.get('X-Real-IP', 'no real ip')}
 > {data.get('error', 'no error')}
 > {data.get('comment', 'no comment')}
 """)
-   return 'OK'
+      return redirect('/contact_us#done')
 		
 if __name__ == '__main__':
     app.run() #debug = True

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<title>FF: Обратная связь</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="shortcut icon" type="image/ico" href="/static/favicon.ico">
+<link rel="stylesheet" href="/static/w3.css">
+<style>
+    .container {
+        width: 100%;
+        max-width: 600px;
+    }
+</style>
+<body class="w3-light-grey w3-block w3-display-container">
+    <form id="comment-container" class="container w3-display-topmiddle w3-card-2" method="POST" action="/comment">
+        <div class="w3-teal" style="padding: 0 8px;">
+            Форма обратной связи
+        </div>
+        <textarea name="comment" class="w3-input w3-border" style="resize:vertical" placeholder="Будем рады любому отклику"></textarea>
+        <button class="w3-button w3-teal w3-block">Отправить</button>
+    </form>
+    <script>
+        var comment_container = document.getElementById('comment-container') // not used
+        var comment_textarea = comment_container.getElementsByTagName('textarea')[0]
+        var comment_send_btn = comment_container.getElementsByTagName('button')[0]
+
+        function oninput(){
+            comment_send_btn.disabled = comment_textarea.value === ''
+        }
+
+        comment_textarea.oninput = oninput
+        oninput()
+
+        comment_send_btn.onclick = function(e){
+            e.preventDefault()
+
+            var comment = comment_textarea.value
+            if (!comment)
+                return;
+
+            var data = { comment }
+            
+            var xhr = new XMLHttpRequest()
+            xhr.open('POST', '/comment')
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(JSON.stringify(data))
+            
+            comment_textarea.placeholder = 'Спасибо за ваш отзыв!'
+            comment_textarea.value = ''
+            comment_send_btn.innerText = 'Отправить ещё'
+        }
+    </script>
+</body>

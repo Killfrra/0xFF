@@ -1,38 +1,5 @@
 //jshint asi:true
 
-/*
-function pseudoXMLHttpRequest(){
-    this.requestAttempt = 0
-}
-pseudoXMLHttpRequest.prototype.open = function(method, location){
-    this.location = location
-}
-pseudoXMLHttpRequest.prototype.send = function(data){
-    if(this.requestAttempt == 1 && this.onerror){
-        this.onerror()
-        this.requestAttempt++
-    } else if(this.location == '/upload'){
-        if(this.requestAttempt == 2)
-            this.responseText = JSON.stringify({
-                error: 'ошибка пришла с сервера'
-            })
-        else this.responseText = JSON.stringify(
-                [
-                    [5, 'Golos Text_Regular', 'about:blank'],
-                    [4, 'NotoSerif-Regular', 'about:blank'],
-                    [3, 'Oswald-Regular', 'about:blank'],
-                    [2, 'Phenomena-Regular', 'about:blank'],
-                    [1, 'Sreda-Regular', 'about:blank']
-                 ]
-            )
-        
-        setTimeout(this.onload, 500)
-        this.requestAttempt++
-    }
-}
-*/
-var pseudoXMLHttpRequest = XMLHttpRequest
-
 function css_state(state){
     document.body.setAttribute('state', state)
     document.body.removeAttribute('error')
@@ -54,7 +21,6 @@ var error = document.getElementById('error')
 var comment_container = document.getElementById('comment-container') // not used
 var comment_textarea = comment_container.getElementsByTagName('textarea')[0]
 var comment_send_btn = comment_container.getElementsByTagName('button')[0]
-var offscreen_canvas = document.getElementById('offscreen-canvas')
 
 var file, cropper, image_url, cropper_inited = false;
 function update_cropper(){
@@ -178,7 +144,7 @@ fsm.loading_state.start = function(){
         data.append(key, box[key].toString())
     })
     */
-    var xhr = new pseudoXMLHttpRequest()
+    var xhr = new XMLHttpRequest()
     xhr.onload = function (e) {
         // пришли результаты, но до этого пользователь струсил и нажал "назад"
         if(fsm.state !== fsm.loading_state)
@@ -302,8 +268,9 @@ function submit_comment(){
     if(comment)
         data.comment = comment
     
-    var xhr = new pseudoXMLHttpRequest()
+    var xhr = new XMLHttpRequest()
     xhr.open('POST', '/comment')
+    xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.send(JSON.stringify(data))
     
     document.body.removeAttribute('error')

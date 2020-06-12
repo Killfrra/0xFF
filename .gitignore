@@ -6,6 +6,8 @@ lightning_logs
 ram
 runs
 node_modules
+uploads
+feedback.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
