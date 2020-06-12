@@ -46,7 +46,10 @@ def leave_comment():
 > {data.get('error', 'no error')}
 > {data.get('comment', 'no comment')}
 """)
-      return redirect('/contact_us#done')
+   if request.is_json:
+      return 'OK'
+   else:
+      return redirect('/static/contact_us.html#done')
 		
 if __name__ == '__main__':
     app.run() #debug = True
