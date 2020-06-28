@@ -17,7 +17,7 @@ parser.add_argument('-u', '--unlabeled', default=False, type=bool)
 parser.add_argument('-d', '--dict', default='10000-russian-words-cyrillic-only.txt', type=str)
 parser.add_argument('-r', '--regular', default=False, type=bool)
 parser.add_argument("-b", "--image_dir", type=str, default='datasets/bg_img')
-parser.add_argument("-m", "--mask", type=bool, default=False)
+#parser.add_argument("-m", "--mask", type=bool, default=False)
 args = parser.parse_args()
 
 font_list = os.listdir(args.font_folder)
@@ -55,9 +55,10 @@ def create_random_txt(text, font, font_size):
     character_spacing = rnd.randint(0, 20)
 
     diff = fill_color - stroke_fill_color
-    if abs(diff) < 30:
-        fill_color += int(math.copysign(10, diff))
-        stroke_fill_color -= int(math.copysign(10, diff))
+    min_color_diff = 30
+    if abs(diff) < min_color_diff:
+        fill_color += int(math.copysign(min_color_diff // 2, diff))
+        stroke_fill_color -= int(math.copysign(min_color_diff // 2, diff))
  
     return create_txt(text, character_spacing, (fill_color, 255), font, stroke_width=stroke_width, stroke_fill=(stroke_fill_color, 255))
 
@@ -84,29 +85,29 @@ def create_txt(text, character_spacing, fill, font, stroke_width, stroke_fill, f
         cx += piece_widths[i] + character_spacing
         i += 1
 
-    if args.mask:
-        mask = Image.new('L', txt_img.size, 0)
-        mask_draw = ImageDraw.Draw(mask)
+    #if args.mask:
+    mask = Image.new('L', txt_img.size, 0)
+    mask_draw = ImageDraw.Draw(mask)
 
-        cx = stroke_width
-        i = 0
-        for c in text:
-            mask_draw.text((cx, stroke_width), c, 255, font)
-            cx += piece_widths[i] + character_spacing
-            i += 1
+    cx = stroke_width
+    i = 0
+    for c in text:
+        mask_draw.text((cx, stroke_width), c, 255, font)
+        cx += piece_widths[i] + character_spacing
+        i += 1
     
-    if args.mask:
-        if fit:
-            bbox = txt_img.getbbox()
-            return (txt_img.crop(bbox), mask.crop(bbox))
-        else:
-            return txt_img, mask
+    #if args.mask:
+    if fit:
+        bbox = txt_img.getbbox()
+        return (txt_img.crop(bbox), mask.crop(bbox))
     else:
-        if fit:
-            bbox = txt_img.getbbox()
-            return txt_img.crop(bbox), None
-        else:
-            return txt_img, None
+        return txt_img, mask
+    #else:
+    #    if fit:
+    #        bbox = txt_img.getbbox()
+    #        return txt_img.crop(bbox), None
+    #    else:
+    #        return txt_img, None
 
 def np_img(pil_img):
     return np.array(pil_img)
@@ -202,8 +203,8 @@ for font_name in font_list:
         continue
 
     #if font_num == 42: break
-    font_num += 1
-    if font_num < 31: continue
+    #font_num += 1
+    #if font_num < 31: continue
     
     #savedir = '%s/%s' % (args.output_dir, 'no_label' if args.unlabeled else font_name[:-4])
     #os.makedirs(savedir, exist_ok=True)
@@ -211,7 +212,7 @@ for font_name in font_list:
                    #len(os.listdir(savedir))
     for _ in range(0, args.images):
     
-        font_size = rnd.randint(22, 72)
+        font_size = rnd.randint(11, 72)
         font = ImageFont.truetype(os.path.join(args.font_folder, font_name), size=font_size)
 
         str = random_string_from_dict(1)
@@ -219,79 +220,69 @@ for font_name in font_list:
 
         txt_alpha = txt.split()[-1]
 
-        border = 16 #rnd.randint(0, round(font_size * 0.3))
-        #txt_offset = (border, border)
-        max_text_side = round(max(txt.size[0], txt.size[1]) * 1.1)
-        min_text_side = round(min(txt.size[0], txt.size[1]) * 1.1)
+        max_affine_scale = 1.1
+        max_text_side = round(max(txt.size[0], txt.size[1]) * max_affine_scale)
+        min_text_side = round(min(txt.size[0], txt.size[1]) * max_affine_scale)
+        border = 16 # вместо того, чтобы париться с тригонометрией, имперически выведеден отступ
         bg_side = max_text_side + min_text_side // 2 + border
-        bg_size = [ bg_side ] * 2 #(txt.size[0] + 2*border, txt.size[1] + 2*border)
-        txt_background = image_background(bg_size)
+        bg_size = [ bg_side ] * 2
+        background = image_background(bg_size)
 
         txt_offset = (
-            (txt_background.size[0] - txt.size[0]) // 2,
-            (txt_background.size[1] - txt.size[1]) // 2
+            (background.size[0] - txt.size[0]) // 2,
+            (background.size[1] - txt.size[1]) // 2
         )
-        shadow_count = rnd.randint(0, 5)
-        while shadow_count > 0:
-            drop_random_shadow(txt_alpha, txt_offset, txt_background)
-            shadow_count -= 1
+        max_shadow_count = 5
+        for _ in range(rnd.randint(0, max_shadow_count)):
+            drop_random_shadow(txt_alpha, txt_offset, background)
 
-        txt_background.paste(txt, txt_offset, txt_alpha)
+        background.paste(txt, txt_offset, txt_alpha)
 
-        if args.mask:
-            txt_mask = Image.new('L', bg_size, 0)
-            txt_mask.paste(mask, txt_offset)
-            #txt_mask = txt_mask.resize((txt_mask.size[0] // 8, txt_mask.size[1] // 8))
-            #txt_mask.save('%s/%d_mask.tiff' % (savedir, i))
+        #if args.mask:
+        txt_mask = Image.new('L', bg_size, 0)
+        txt_mask.paste(mask, txt_offset)
+        #txt_mask = txt_mask.resize((txt_mask.size[0] // 8, txt_mask.size[1] // 8))
+        #txt_mask.save('%s/%d_mask.tiff' % (savedir, i))
 
         mask = SegmentationMapsOnImage(np_img(txt_mask), txt_mask.size)
-        background, mask = preprocess(image=np_img(txt_background), segmentation_maps=mask)
+        background, mask = preprocess(image=np_img(background), segmentation_maps=mask)
         mask = pil_img(mask.get_arr())
         bbox = mask.getbbox()
-        bbox = (max(0, bbox[0] - border),
-                max(0, bbox[1] - border),
-                min(bbox[2] + border, mask.size[0]),
-                min(bbox[3] + border, mask.size[0]))
-        background = pil_img(background).crop(bbox)
 
-        #mask.save(f'{savedir}/{i}_mask.tiff')
-
+        min_side = bbox[3] - bbox[1] #min(bbox[2] - bbox[0], bbox[3] - bbox[1])
+        precent_loss = rnd.uniform(0, 10)
+        loss_distribution = rnd.uniform(0, 1)
+        max_border = 100#px
+        bbox = ( #TODO: what if minside is not Y?
+            max(0, bbox[0] - rnd.randint(0, max_border)),
+            max(0, bbox[1] - rnd.randint(0, max_border)),
+            #round(-min_side * precent_loss * (1 - loss_distribution))
+            min(bbox[2] + rnd.randint(0, max_border), mask.size[0]), #TODO: mask.size[0]?
+            min(bbox[3] + rnd.randint(0, max_border), mask.size[0])
+        )
+        bbox_size = (bbox[2] - bbox[0], bbox[3] - bbox[1])
+        ratio = bbox_size[0] / bbox_size[1]
         square_side = 127
-
-        background = background.resize((
-            round(square_side * background.size[0] / background.size[1]),
+        w_after_resize = square_side * ratio
+        nearest_width = round((w_after_resize // square_side) * square_side)
+        if nearest_width == 0:
+            nearest_width = square_side
+        diff = (w_after_resize - nearest_width) * (bbox_size[1] / square_side)
+        print('DEBUG', nearest_width, square_side * ((bbox_size[0] - diff) / bbox_size[1]))
+        background = pil_img(background).crop((
+            bbox[0] + diff // 2,
+            bbox[1],
+            bbox[2] - diff // 2,
+            bbox[3]
+        )).resize((
+            nearest_width,
             square_side
         ))
-
-        nearest_width = (background.size[0] // square_side) * square_side
-        
-        if nearest_width > 0:
-            diff = background.size[0] - nearest_width 
-            background = background.crop((
-                0 + diff // 2,
-                0,
-                nearest_width + diff // 2,
-                square_side
-            ))
-        else:
-            continue
 
         savedir = f'{args.output_dir}/{nearest_width}/{font_name[:-4]}'
         os.makedirs(savedir, exist_ok=True)
 
-        background.save(f'{savedir}/{i}_0.tiff')
-
-        """
-        save_path = '%s/%d.tiff' % (savedir, i)
-        try:
-            txt_background.save(save_path)
-        except TypeError:
-            try:
-                os.remove(save_path)
-                i -= 1
-            except:
-                pass
-        """
+        background.save(f'{savedir}/{i}.tiff')
 
         i += 1
 

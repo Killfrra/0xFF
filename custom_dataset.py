@@ -3,18 +3,6 @@ from torchvision.transforms.functional import to_tensor, to_pil_image
 import random as rnd
 import torch
 from torch.utils.data import RandomSampler, SequentialSampler, BatchSampler
-import numpy as np
-
-file = {
-    '127': {
-        'data': np.array([0, 1, 2]),
-        'labels': np.array(['a', 'b', 'c'])
-    },
-    '254': {
-        'data': np.array([3, 4, 5, 6]),
-        'labels': np.array(['d', 'e', 'f', 'g'])
-    }
-}
 
 class CustomSampler(Sampler):
 
@@ -36,7 +24,7 @@ class CustomSampler(Sampler):
         for key in self.file:
             group_batches = list(BatchSampler(self.sampler(self.file[key]['data']), self.batch_size, self.drop_last))
             batches.extend(zip([key] * len(group_batches), group_batches))
-            rnd.shuffle(batches)
+        rnd.shuffle(batches)
         self.length = len(batches)
         return iter(batches)
 
@@ -64,6 +52,17 @@ class CustomDataset(Dataset):
         return self.length
 
 if __name__ == '__main__':
+    import numpy as np
+    file = {
+        '127': {
+            'data': np.array([0, 1, 2]),
+            'labels': np.array(['a', 'b', 'c'])
+        },
+        '254': {
+            'data': np.array([3, 4, 5, 6]),
+            'labels': np.array(['d', 'e', 'f', 'g'])
+        }
+    }
     sampler = CustomSampler(file, batch_size=2)
     dataset = CustomDataset(file, sampler)
     dataloader = DataLoader(dataset, batch_size=None, sampler=sampler)
