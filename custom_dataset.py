@@ -3,6 +3,7 @@ from torchvision.transforms.functional import to_tensor, to_pil_image
 import random as rnd
 import torch
 from torch.utils.data import RandomSampler, SequentialSampler, BatchSampler
+import numpy as np
 
 class CustomSampler(Sampler):
 
@@ -43,8 +44,16 @@ class CustomDataset(Dataset):
         #print('getitem', idx)
         group, indexes = idx
         grp = self.file[group]
-        data = grp['data'][indexes]
-        labels = grp['labels'][indexes]
+        data_grp = grp['data']
+        labels_grp = grp['labels']
+        shape = data_grp[0].shape
+        batch_size = len(indexes)
+        data = np.empty((batch_size, shape[0], shape[1]), dtype=np.uint8)
+        labels = np.empty((batch_size,), dtype='i8')
+        for i, j in enumerate(indexes):
+            data[i] = data_grp[j]
+            labels[i] = labels_grp[j]
+        data = torch.from_numpy(data).float().div(255).unsqueeze_(1)
         return (data, labels)
 
     def __len__(self):
@@ -55,16 +64,16 @@ if __name__ == '__main__':
     import numpy as np
     file = {
         '127': {
-            'data': np.array([0, 1, 2]),
-            'labels': np.array(['a', 'b', 'c'])
+            'data': np.array([[[0]], [[1]], [[2]]], dtype=np.uint8),
+            'labels': np.array([7, 8, 9], dtype='i8')
         },
         '254': {
-            'data': np.array([3, 4, 5, 6]),
-            'labels': np.array(['d', 'e', 'f', 'g'])
+            'data': np.array([[[3]], [[4]], [[5]], [[6]]], dtype=np.uint8),
+            'labels': np.array([10, 11, 12, 13], dtype='i8')
         }
     }
-    sampler = CustomSampler(file, batch_size=2)
+    sampler = CustomSampler(file, batch_size=3, shuffle=True, drop_last=True)
     dataset = CustomDataset(file, sampler)
     dataloader = DataLoader(dataset, batch_size=None, sampler=sampler)
     for data, labels in dataloader:
-        print(data, labels)
+        print(data.size(), labels)
