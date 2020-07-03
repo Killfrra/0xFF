@@ -23,7 +23,7 @@ num_classes = 47
 # Number of epochs to train for 
 num_epochs = 2
 
-batch_size = 8
+mem = 127 * 127 * 64
 
 def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
     since = time.time()
@@ -47,6 +47,7 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
             running_loss = 0.0
             running_corrects = 0
 
+            # TODO: catch KeyboardInterrupt
             # Iterate over data.
             for inputs, labels in dataloaders[phase]:
                 inputs = inputs.to(device)
@@ -74,8 +75,8 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
 
-            epoch_loss = running_loss / len(dataloaders[phase].dataset)
-            epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
+            epoch_loss = running_loss / dataloaders[phase].dataset.num_samples
+            epoch_acc = running_corrects.double() / dataloaders[phase].dataset.num_samples
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
 
@@ -84,6 +85,7 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
                 #if epoch_acc > best_acc:
                 best_acc = epoch_acc
                 torch.save(model.state_dict(), f'saves/squeezenet_{num_classes}c_ep{epoch}_{round(best_acc.item() * 100)}acc')
+                
                 val_acc_history.append(epoch_acc)
 
         print()
@@ -109,14 +111,14 @@ model.load_state_dict(state_dict, strict=False)
 
 print("Initializing Datasets and Dataloaders...")
 
-with h5py.File('datasets/train.hdf5', 'r') as train_dataset_file, \
-     h5py.File('datasets/test.hdf5', 'r')  as val_dataset_file:
+with h5py.File('ram/train.hdf5', 'r') as train_dataset_file, \
+     h5py.File('ram/test.hdf5', 'r')  as val_dataset_file:
     
     samplers = [
-        CustomSampler(train_dataset_file, batch_size, shuffle=True, drop_last=True),
-        CustomSampler(train_dataset_file, batch_size, shuffle=False, drop_last=True)
+        CustomSampler(train_dataset_file, mem, shuffle=True, drop_last=True),
+        CustomSampler(val_dataset_file, mem, shuffle=False, drop_last=True)
     ]
-    
+
     # Create training and validation datasets
     datasets = [
         CustomDataset(train_dataset_file, samplers[0]),
@@ -124,7 +126,7 @@ with h5py.File('datasets/train.hdf5', 'r') as train_dataset_file, \
     ]
 
     kwargs = {
-    #    'num_workers': 6,
+        #'num_workers': 6,
         'pin_memory': True
     }
     # Create training and validation dataloaders

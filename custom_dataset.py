@@ -1,5 +1,5 @@
-from torch.utils.data import Dataset, IterableDataset, DataLoader, Sampler
-from torchvision.transforms.functional import to_tensor, to_pil_image
+from torch.utils.data import Dataset, DataLoader, Sampler
+from torchvision.transforms.functional import to_tensor
 import random as rnd
 import torch
 from torch.utils.data import RandomSampler, SequentialSampler, BatchSampler
@@ -7,7 +7,7 @@ import numpy as np
 
 class CustomSampler(Sampler):
 
-    def __init__(self, file, batch_size=1, shuffle=False, drop_last=False):
+    def __init__(self, file, mem, shuffle=False, drop_last=False):
         #print('sampler init called')
         self.file = file
         self.shuffle = shuffle
@@ -15,15 +15,17 @@ class CustomSampler(Sampler):
             self.sampler = RandomSampler
         else:
             self.sampler = SequentialSampler
-        self.batch_size = batch_size
+        self.mem = mem
         self.drop_last = drop_last
-        self.__iter__()
+        #self.__iter__()
 
     def __iter__(self):
         #print('iter called')
         batches = []
         for key in self.file:
-            group_batches = list(BatchSampler(self.sampler(self.file[key]['data']), self.batch_size, self.drop_last))
+            data_grp = self.file[key]['data']
+            batch_size = self.mem // np.prod(data_grp[0].shape).item()
+            group_batches = list(BatchSampler(self.sampler(data_grp), batch_size, self.drop_last))
             batches.extend(zip([key] * len(group_batches), group_batches))
         rnd.shuffle(batches)
         self.length = len(batches)
@@ -38,6 +40,7 @@ class CustomDataset(Dataset):
     def __init__(self, file, sampler):
         #print('init called')
         self.file = file
+        self.num_samples = sum([ len(indexes) for _, indexes in list(sampler) ])
         self.length = len(sampler)
 
     def __getitem__(self, idx):
@@ -68,12 +71,15 @@ if __name__ == '__main__':
             'labels': np.array([7, 8, 9], dtype='i8')
         },
         '254': {
-            'data': np.array([[[3]], [[4]], [[5]], [[6]]], dtype=np.uint8),
+            'data': np.array([[[3, 0]], [[4, 0]], [[5, 0]], [[6, 0]]], dtype=np.uint8),
             'labels': np.array([10, 11, 12, 13], dtype='i8')
         }
     }
-    sampler = CustomSampler(file, batch_size=3, shuffle=True, drop_last=True)
-    dataset = CustomDataset(file, sampler)
-    dataloader = DataLoader(dataset, batch_size=None, sampler=sampler)
-    for data, labels in dataloader:
-        print(data.size(), labels)
+    import h5py
+    with h5py.File('ram/train.hdf5', 'r') as file:
+        sampler = CustomSampler(file, mem=127*127*64, shuffle=True, drop_last=True)
+        dataset = CustomDataset(file, sampler)
+        dataloader = DataLoader(dataset, batch_size=None, sampler=sampler)
+        #for data, labels in dataloader:
+        #    print(data.size(), labels)
+        print(dataloader.dataset.num_samples, len(dataloader.dataset))
