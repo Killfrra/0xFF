@@ -5,46 +5,51 @@ import torch
 from torch.utils.data import RandomSampler, SequentialSampler, BatchSampler
 import numpy as np
 
-class CustomSampler(Sampler):
-
-    def __init__(self, file, mem, shuffle=False, drop_last=False):
-        #print('sampler init called')
-        self.file = file
-        self.shuffle = shuffle
-        if shuffle:
-            self.sampler = RandomSampler
-        else:
-            self.sampler = SequentialSampler
-        self.mem = mem
-        self.drop_last = drop_last
-        #self.__iter__()
-
-    def __iter__(self):
-        #print('iter called')
-        batches = []
-        for key in self.file:
-            data_grp = self.file[key]['data']
-            batch_size = min(self.mem // np.prod(data_grp[0].shape).item(), data_grp.shape[0])
-            group_batches = list(BatchSampler(self.sampler(data_grp), batch_size, self.drop_last))
-            batches.extend(zip([key] * len(group_batches), group_batches))
-        if self.shuffle:
-            rnd.shuffle(batches)
-        self.length = len(batches)
-        return iter(batches)
-
-    def __len__(self):
-        return self.length
-
-
 class CustomBatchSampler(Sampler):
-    def __init__(self, sampler):
-        self.sampler = sampler
+    
+    def __init__(self, file, mem, num_replicas=1, rank=0, shuffle=True, drop_last=False):
+        #self.mem, self.shuffle, self.drop_last = (mem, shuffle, drop_last)
+        self.epoch = 0
+        self.indices = {}
+        self.slices = [] # all batches
+        self.num_batches = 0
+        self.num_samples = 0
+        global_mem = mem * num_replicas
+        for key in file:
+            data_grp = file[key]['data']
+            key_len = data_grp.shape[0]
+            global_batch_size = min(global_mem // np.prod(data_grp[0].shape).item(), key_len)
+            batch_size = global_batch_size // num_replicas               # сейчас они отбрасываются
+            if batch_size == 0:
+                continue
+            modulo = key_len % global_batch_size
+            key_batches = key_len // global_batch_size + (not drop_last and modulo > 0)
+            self.num_batches += key_batches
+            if drop_last:
+                key_len -= modulo
+            #TODO: что делать, если остаётся меньше samples, чем num_replica?
+            self.num_samples += (key_len // num_replicas) * num_replicas # сейчас они отбрасываются
+            self.indices[key] = range(key_len)
+            for i in range(key_batches):
+                batch_start = i * global_batch_size + batch_size * rank
+                batch_end = min(batch_start + batch_size, key_len)
+                self.slices.append((key, slice(batch_start, batch_end)))
+        
 
     def __iter__(self):
-        return ([ (group, index) for index in indexes ] for group, indexes in self.sampler)
+        g = torch.random.manual_seed(self.epoch)
+        for key, value in self.indices.items():
+            self.indices[key] = torch.randperm(len(value), generator=g).tolist()
+        batch_indices = torch.randperm(self.num_batches, generator=g).tolist()
+        for batch in batch_indices:
+            key, _slice = self.slices[batch]
+            yield [ (key, index) for index in self.indices[key][_slice] ]
 
     def __len__(self):
-        return len(self.sampler)
+        return self.num_batches
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
 
 
 def normalize(x):
@@ -55,21 +60,17 @@ def normalize(x):
 class CustomDataset(Dataset):
 
     def __init__(self, file, sampler, mean=0, std=255, convert_to_tensor=True):
-        #print('init called')
         self.file = file
-        self.num_samples = sum([ len(indexes) for _, indexes in list(sampler) ])
+        self.num_samples = sampler.num_samples
         self.convert_to_tensor = convert_to_tensor
         self.mean = mean
         self.std = std
 
     def __getitem__(self, idx):
-        #print('getitem', idx)
         group, index = idx
         grp = self.file[group]
-        data_grp = grp['data']
-        labels_grp = grp['labels']
-        data = data_grp[index] 
-        label = labels_grp[index]
+        data = grp['data'][index] 
+        label = grp['labels'][index]
         if self.convert_to_tensor:
             #data = torch.from_numpy(data).float().sub_(self.mean).div_(self.std) #.div_(255).unsqueeze_(1)
             data = to_tensor(data)
@@ -81,12 +82,10 @@ class CustomDataset(Dataset):
         return (data, label)
 
     def __len__(self):
-        #print('len called')
         return self.num_samples
 
+
 if __name__ == '__main__':
-    import numpy as np
-    """
     file = {
         '127': {
             'data': np.array([[[0]], [[1]], [[2]]], dtype=np.uint8),
@@ -97,19 +96,10 @@ if __name__ == '__main__':
             'labels': np.array([10, 11, 12, 13], dtype='i8')
         }
     }
-    """
-    import h5py
-    #mean = 0.29518359668870897
-    #var = 10.006859636120366
-    #std = 3.163362077935494
-    with h5py.File('datasets/train.hdf5', 'r') as file:
-        sampler = CustomSampler(file, mem=127*127*64, shuffle=False, drop_last=True)
-        batch_sampler = CustomBatchSampler(sampler)
-        dataset = CustomDataset(file, sampler)
-        dataloader = DataLoader(dataset, batch_sampler=batch_sampler)
-        i = 0
-        for data, labels in dataloader:
-            if i == 1: break
-            i += 1
-            print(data, labels)
-        #print(dataloader.dataset.num_samples, len(dataloader.dataset))
+    
+    batch_sampler = CustomBatchSampler(file, 1, num_replicas=3, rank=0)
+    print(batch_sampler.num_samples)
+    for batch in batch_sampler:
+        print(batch)
+
+    exit()
