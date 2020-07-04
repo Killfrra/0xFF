@@ -15,7 +15,7 @@ from torchvision.transforms.functional import to_tensor
 import h5py
 import torch
 from model import SqueezeNet
-from custom_dataset import CustomSampler, CustomDataset
+from custom_dataset import CustomSampler, CustomBatchSampler, CustomDataset
 
 # Number of classes in the dataset
 num_classes = 47
@@ -23,7 +23,7 @@ num_classes = 47
 # Number of epochs to train for 
 num_epochs = 2
 
-mem = 127 * 127 * 64
+mem = 127 * 127 * 128
 
 def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
     since = time.time()
@@ -50,8 +50,8 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
             # TODO: catch KeyboardInterrupt
             # Iterate over data.
             for inputs, labels in dataloaders[phase]:
-                inputs = inputs.to(device)
-                labels = labels.to(device)
+                inputs = inputs.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -111,12 +111,17 @@ model.load_state_dict(state_dict, strict=False)
 
 print("Initializing Datasets and Dataloaders...")
 
-with h5py.File('ram/train.hdf5', 'r') as train_dataset_file, \
-     h5py.File('ram/test.hdf5', 'r')  as val_dataset_file:
+with h5py.File('datasets/train.hdf5', 'r') as train_dataset_file, \
+     h5py.File('datasets/test.hdf5', 'r')  as val_dataset_file:
     
     samplers = [
         CustomSampler(train_dataset_file, mem, shuffle=True, drop_last=True),
         CustomSampler(val_dataset_file, mem, shuffle=False, drop_last=True)
+    ]
+
+    batch_samplers = [
+        CustomBatchSampler(samplers[0]),
+        CustomBatchSampler(samplers[1]),
     ]
 
     # Create training and validation datasets
@@ -131,8 +136,8 @@ with h5py.File('ram/train.hdf5', 'r') as train_dataset_file, \
     }
     # Create training and validation dataloaders
     dataloaders = [
-        torch.utils.data.DataLoader(datasets[0], batch_size=None, sampler=samplers[0], **kwargs),
-        torch.utils.data.DataLoader(datasets[1], batch_size=None, sampler=samplers[1], **kwargs)
+        torch.utils.data.DataLoader(datasets[0], batch_sampler=batch_samplers[0], **kwargs),
+        torch.utils.data.DataLoader(datasets[1], batch_sampler=batch_samplers[1], **kwargs)
     ]
 
     # Detect if we have a GPU available

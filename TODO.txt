@@ -1,0 +1,18 @@
+Dataset:
+Optimize CustomSampler
+    - Merge sampler and batch_sampler
+Fix calc_mean_std and merge with data/h5p_packer
+(done) Попробовать заставить CustomDataset.__getitem__ принимать idx вида (size, index) instead of (size, [indexes])
+(none)     - возможно, удастся распределить нагрузку по cpu
+           - возможно, придётся написать passthrough CustomBatchSampler
+Попробовать переместить h5py.open в CustomDataset
+
+Network:
+catch KeyboardInterruption
+pereodic print
+torch_xla
+Soft topk loss function
+
+Website:
+Make crop instructions img
+Custom preview
