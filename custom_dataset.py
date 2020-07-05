@@ -14,27 +14,43 @@ class CustomBatchSampler(Sampler):
         self.slices = [] # all batches
         self.num_batches = 0
         self.num_samples = 0
-        global_mem = mem * num_replicas
         for key in file:
             data_grp = file[key]['data']
             key_len = data_grp.shape[0]
-            global_batch_size = min(global_mem // np.prod(data_grp[0].shape).item(), key_len)
-            batch_size = global_batch_size // num_replicas               # сейчас они отбрасываются
+            batch_size = mem // np.prod(data_grp[0].shape).item()
             if batch_size == 0:
-                continue
-            modulo = key_len % global_batch_size
-            key_batches = key_len // global_batch_size + (not drop_last and modulo > 0)
-            self.num_batches += key_batches
+                continue # недостаточно памяти для того, чтобы вместить хотя бы один элемент
+
+            global_batch_size = batch_size * num_replicas
+            global_batch_count = key_len // global_batch_size
+            for i in range(global_batch_count):
+                batch_start = i * global_batch_size + rank * batch_size
+                batch_end = batch_start + batch_size
+                self.slices.append((key, slice(batch_start, batch_end), 0))
+            
+            self.num_batches += global_batch_count
+
+            remaining_samples = key_len - global_batch_count * global_batch_size
+            if not drop_last and remaining_samples > 0:
+                # 1 < remaining_batch_size < batch_size
+                # remaining_batch_size * num_repicas >= key_len
+                remaining_batch_size = min(max(remaining_samples // num_replicas + (remaining_samples % num_replicas > 0), 1), batch_size)
+                batch_start = global_batch_count * global_batch_size + rank * remaining_batch_size
+                batch_end = batch_start + remaining_batch_size
+                
+                if batch_start < key_len and batch_end < key_len:
+                    self.slices.append((key, slice(batch_start, batch_end), 0))
+                elif batch_start >= key_len:
+                    self.slices.append((key, slice(0), remaining_batch_size))
+                elif batch_end >= key_len:
+                    self.slices.append((key, slice(batch_start, key_len), batch_end - key_len))
+                
+                self.num_batches += 1
+
             if drop_last:
-                key_len -= modulo
-            #TODO: что делать, если остаётся меньше samples, чем num_replica?
-            self.num_samples += (key_len // num_replicas) * num_replicas # сейчас они отбрасываются
+                key_len = global_batch_count * global_batch_size
             self.indices[key] = range(key_len)
-            for i in range(key_batches):
-                batch_start = i * global_batch_size + batch_size * rank
-                batch_end = min(batch_start + batch_size, key_len)
-                self.slices.append((key, slice(batch_start, batch_end)))
-        
+            self.num_samples += key_len        
 
     def __iter__(self):
         g = torch.random.manual_seed(self.epoch)
@@ -42,8 +58,9 @@ class CustomBatchSampler(Sampler):
             self.indices[key] = torch.randperm(len(value), generator=g).tolist()
         batch_indices = torch.randperm(self.num_batches, generator=g).tolist()
         for batch in batch_indices:
-            key, _slice = self.slices[batch]
-            yield [ (key, index) for index in self.indices[key][_slice] ]
+            key, _slice, additional_count = self.slices[batch]
+            additional = torch.randint(0, len(self.indices[key]), (additional_count, ), generator=g).tolist()
+            yield [ (key, index) for index in self.indices[key][_slice] ] + [ (key, index) for index in additional ]
 
     def __len__(self):
         return self.num_batches
@@ -97,9 +114,10 @@ if __name__ == '__main__':
         }
     }
     
-    batch_sampler = CustomBatchSampler(file, 1, num_replicas=3, rank=0)
-    print(batch_sampler.num_samples)
-    for batch in batch_sampler:
-        print(batch)
-
-    exit()
+    num_replicas = 4
+    for rank in range(num_replicas):
+        print('rank', rank)
+        batch_sampler = CustomBatchSampler(file, 4, num_replicas, rank)
+        #print(batch_sampler.slices)
+        for batch in batch_sampler:
+            print(batch)
