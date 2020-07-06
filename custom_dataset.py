@@ -83,9 +83,9 @@ def normalize(x):
 
 class CustomDataset(Dataset):
 
-    def __init__(self, file, sampler, mean=0, std=255, convert_to_tensor=True):
+    def __init__(self, file, mean=0, std=255, convert_to_tensor=True):
         self.file = file
-        self.num_samples = sampler.num_samples
+        self.num_samples = sum([ file[key]['data'].shape[0] for key in file ]) #TODO: file.values?
         self.convert_to_tensor = convert_to_tensor
         self.mean = mean
         self.std = std
@@ -96,8 +96,8 @@ class CustomDataset(Dataset):
         data = grp['data'][index] 
         label = grp['labels'][index]
         if self.convert_to_tensor:
-            #data = torch.from_numpy(data).float().sub_(self.mean).div_(self.std) #.div_(255).unsqueeze_(1)
-            data = to_tensor(data)
+            data = torch.from_numpy(data).float().sub_(self.mean).div_(self.std).unsqueeze_(0)
+            #data = to_tensor(data)
         else:
             data = data.astype(np.float32)
             np.subtract(data, self.mean, out=data)
