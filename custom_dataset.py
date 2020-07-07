@@ -62,12 +62,14 @@ class CustomBatchSampler(Sampler):
         for key, value in self.indices.items():
             self.indices[key] = torch.randperm(len(value), generator=g).tolist()
         batch_indices = torch.randperm(self.num_batches, generator=g).tolist()
+        batches_list = []
         for batch in batch_indices:
             key, _slice, additional_count = self.batches[batch]
             res = [ (key, index) for index in self.indices[key][_slice] ]
             if additional_count:
                 res += [ (key, index) for index in torch.randint(0, len(self.indices[key]), (additional_count, ), generator=g).tolist() ]
-            yield res
+            batches_list.append(res)
+        return iter(batches_list)
 
     def __len__(self):
         return self.num_batches
@@ -84,6 +86,7 @@ def normalize(x):
 class CustomDataset(Dataset):
 
     def __init__(self, file, mean=0, std=255, convert_to_tensor=True):
+        print('__init__')
         self.file = file
         self.num_samples = sum([ file[key]['data'].shape[0] for key in file ]) #TODO: file.values?
         self.convert_to_tensor = convert_to_tensor
@@ -93,8 +96,12 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx):
         group, index = idx
         grp = self.file[group]
-        data = grp['data'][index] 
+        data = grp['data'][index]
+        #try:
         label = grp['labels'][index]
+        #except KeyError as e:
+        #    print('\n__getitem__', idx)
+        #    raise e
         if self.convert_to_tensor:
             data = torch.from_numpy(data).float().sub_(self.mean).div_(self.std).unsqueeze_(0)
             #data = to_tensor(data)
@@ -110,6 +117,7 @@ class CustomDataset(Dataset):
 
 
 if __name__ == '__main__':
+    """
     file = {
         '127': {
             'data': np.array([[[0]], [[1]], [[2]]], dtype=np.uint8),
@@ -124,49 +132,65 @@ if __name__ == '__main__':
     for mem in range(0, 5):
         for num_replicas in range(1, 5):
             for drop_last in [True, False]:
-                indices = {}
-                batches = []
-                for rank in range(num_replicas):
-                    #print('mem:', mem, 'num_replicas:', num_replicas, 'rank:', rank, 'drop_last:', drop_last)
-                    batch_sampler = CustomBatchSampler(file, mem, num_replicas, rank, drop_last=drop_last)
-                    batches.append(list(batch_sampler))
-                    for batch in batches[rank]:
-                        #print(batch)
-                        for key, value in batch:
-                            if not key in indices:
-                                indices[key] = [ value ]
-                            elif not value in indices[key]:
-                                indices[key].append(value)
-                #print(indices)
-                for key in file:
-                    key_len = file[key]['data'].shape[0]
-                    if key not in indices:
-                        # нет ни одного элемента с этим ключом,
-                        # если элементы file нельзя распределить по replicas без добавления случайных сэмплов
-                        # или памяти не хватает даже для одного элемента
-                        if (drop_last and key_len < num_replicas) or mem < np.prod(file[key]['data'][0].shape).item():
-                            continue
-                        else:
-                            raise ValueError(f'Нет ни одного элемента группы {key}')
+    """
+
+    import h5py
+
+    with h5py.File('datasets/train.hdf5', 'r') as file:
+        groups = { key: np.prod(value['data'][0].shape).item() for key, value in file.items() }
+        print(sorted(groups.items(), key=lambda x: x[1], reverse=True))
+    exit()
+
+    with h5py.File('datasets/train.hdf5', 'r') as file:
+        mem = 127*127*1
+        num_replicas = 1
+        drop_last = False
+        while mem <= 127*127*128:
+            indices = {}
+            batches = []
+            for rank in range(num_replicas):
+                #print('mem:', mem, 'num_replicas:', num_replicas, 'rank:', rank, 'drop_last:', drop_last)
+                batch_sampler = CustomBatchSampler(file, mem, num_replicas, rank, drop_last=drop_last)
+                batches.append(list(batch_sampler))
+                for batch in batches[rank]:
+                    #print(batch)
+                    for key, value in batch:
+                        if not key in indices:
+                            indices[key] = [ value ]
+                        elif not value in indices[key]:
+                            indices[key].append(value)
+            #print(indices)
+            for key in file:
+                key_len = file[key]['data'].shape[0]
+                if key not in indices:
+                    # нет ни одного элемента с этим ключом,
+                    # если элементы file нельзя распределить по replicas без добавления случайных сэмплов
+                    # или памяти не хватает даже для одного элемента
+                    if (drop_last and key_len < num_replicas) or mem < np.prod(file[key]['data'][0].shape).item():
+                        continue
                     else:
-                        diff = key_len - len(indices[key])  # количество неохваченных элементов
-                        if not((not drop_last and diff == 0) or (drop_last and diff < num_replicas)):
-                            raise ValueError('Не охвачены все элементы группы')
-                        elif not((0 <= min(indices[key]) < key_len) and (0 <= max(indices[key]) < key_len)):
-                            raise ValueError('Индексы выходят за рамки группы')
+                        raise ValueError(f'Нет ни одного элемента группы {key}')
+                else:
+                    diff = key_len - len(indices[key])  # количество неохваченных элементов
+                    if not((not drop_last and diff == 0) or (drop_last and diff < num_replicas)):
+                        raise ValueError('Не охвачены все элементы группы')
+                    elif not((0 <= min(indices[key]) < key_len) and (0 <= max(indices[key]) < key_len)):
+                        raise ValueError('Индексы выходят за рамки группы')
 
-                def list_of_one_element(l):
-                    return l == [ l[0] ] * len(l)
-                
-                if not list_of_one_element([ len(batches[rank]) for rank in range(num_replicas) ]):
-                    raise ValueError('Не все батчи одинакового размера')
+            def list_of_one_element(l):
+                return l == [ l[0] ] * len(l)
+            
+            if not list_of_one_element([ len(batches[rank]) for rank in range(num_replicas) ]):
+                raise ValueError('Не все батчи одинакового размера')
 
-                """ #TODO: все сэмплы в батчах кроме случайных должны разниться между репликами
-                diff = {}
-                for i in range(len(batches[0])):
-                    diff[key] += list_of_one_element(
-                        [ batches[rank][i] for rank in range(num_replicas) ]
-                    )
-                for key, value in dict.items():
-                    pass
-                """
+            """ #TODO: все сэмплы в батчах кроме случайных должны разниться между репликами
+            diff = {}
+            for i in range(len(batches[0])):
+                diff[key] += list_of_one_element(
+                    [ batches[rank][i] for rank in range(num_replicas) ]
+                )
+            for key, value in dict.items():
+                pass
+            """
+
+            mem *= 2
