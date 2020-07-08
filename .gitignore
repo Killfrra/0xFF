@@ -1,7 +1,7 @@
 .vscode
 datasets
 output
-data/fonts/top60_ru
+data/fonts
 lightning_logs
 ram
 runs

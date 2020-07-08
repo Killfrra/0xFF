@@ -43,8 +43,8 @@ def get_dataloader(dataset_file):
     dataset = CustomDataset(dataset_file)
     return DataLoader(dataset, batch_sampler=batch_sampler, **dset_kwargs)
 
-with h5py.File('datasets/train.hdf5', 'r') as train_dataset_file, \
-     h5py.File('datasets/test.hdf5', 'r') as val_dataset_file:
+with h5py.File('ram/google_train.hdf5', 'r') as train_dataset_file, \
+     h5py.File('ram/google_test.hdf5', 'r') as val_dataset_file:
 
     train_dataloader = get_dataloader(train_dataset_file)
     val_dataloader = get_dataloader(val_dataset_file)
@@ -52,7 +52,10 @@ with h5py.File('datasets/train.hdf5', 'r') as train_dataset_file, \
     num_classes = train_dataset_file.attrs['class_num']
 
     model = Model(num_classes)
-    #model.load_state_dict(torch.load('saves/squeezenet_47c_ep1_56acc'))
+    #state_dict = torch.load('saves/squeezenet_47c_epepoch=1_val_acc=0.59acc.ckpt')['state_dict']
+    #del state_dict['classifier.1.weight']
+    #del state_dict['classifier.1.bias']
+    #model.load_state_dict(state_dict, strict=False)
 
     model_prefix = f'saves/squeezenet_{num_classes}c'
 
@@ -69,8 +72,8 @@ with h5py.File('datasets/train.hdf5', 'r') as train_dataset_file, \
         fast_dev_run=args.fast,
         max_epochs=args.epochs,
         precision=16,
-        resume_from_checkpoint='saves/squeezenet_47c_epepoch=1_val_acc=0.59acc.ckpt',
-        profiler=True
+        resume_from_checkpoint='saves/squeezenet_115c_epepoch=2_val_acc=0.46acc.ckpt',
+        #profiler=True
     )
 
     #try:

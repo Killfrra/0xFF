@@ -87,7 +87,7 @@ class SqueezeNet(LightningModule):
         inputs, labels = batch
         outputs = self(inputs)
         loss = nn.functional.cross_entropy(outputs, labels)
-        _, preds = torch.max(outputs, 1)
+        preds = torch.argmax(outputs, 1)
         corrects = torch.sum(preds == labels.data).item()
         samples = inputs.size(0)
         return { 'loss': loss, 'corrects': corrects, 'samples': samples }
